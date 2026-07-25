@@ -1,0 +1,34 @@
+﻿using LLVMSharp.Interop;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Generation
+{
+	internal class FuncArgumentAccessor : IValueAccessor
+	{
+		private readonly LLVMValueRef _func;
+		private readonly uint _num;
+
+		public FuncArgumentAccessor(LLVMValueRef func, uint num)
+		{
+			_func = func;
+			_num = num;
+		}
+
+		public LLVMValueRef GetRealValue()
+		{
+			throw new NotImplementedException();
+		}
+
+		public LLVMValueRef GetValue()
+		{
+			return _func.GetParam(_num);
+		}
+
+		public void SetValue(LLVMValueRef value)
+		{
+			throw new NotImplementedException();
+		}
+	}
+}

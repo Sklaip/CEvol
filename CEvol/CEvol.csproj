@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Platforms>AnyCPU;x64;x86</Platforms>
+
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="CEvolLexer.g4" />
+	  <None Remove="CEvolParser.g4" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Antlr4 Include="CEvolLexer.g4" />
+	  <Antlr4 Include="CEvolParser.g4" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+		<PackageReference Include="Antlr4BuildTasks" Version="12.14.0" />
+		<PackageReference Include="libLLVM" Version="21.1.8" />
+		<PackageReference Include="libLLVM.runtime.win-x64" Version="21.1.8" />
+		<PackageReference Include="LLVMSharp" Version="20.1.2" />
+	</ItemGroup>
+</Project>

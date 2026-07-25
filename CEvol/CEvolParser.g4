@@ -1,0 +1,88 @@
+parser grammar CEvolParser;
+
+options { tokenVocab = CEvolLexer; }
+
+// --- Точка входа ---
+program : namespaceDecl (classDecl | functionDecl | fieldDecl | abstractFunctionDecl)* EOF;
+
+namespaceDecl : NAMESPACE IDENTIFIER SEMICOLON ;
+
+// --- Модификаторы ---
+// Модификаторы доступа: public, private (опционально)
+accessModifier : PUBLIC | PRIVATE ;
+
+// Дополнительные модификаторы: static, readonly (в любом количестве и порядке)
+extraModifier : STATIC | READONLY | EXTERN | INFARGS;
+
+qualifier : REF ;
+
+// --- Типы данных ---
+
+arraySpec : LBRACK (COMMA*) RBRACK ;
+typeSpec : (qualifier)* IDENTIFIER arraySpec* ;
+
+
+// --- Объявления ---
+// Модификаторы + Тип + Имя
+fieldDecl : accessModifier? extraModifier* typeSpec IDENTIFIER (ASSIGN expression)? SEMICOLON ;
+
+// Функция/Метод
+functionDecl : accessModifier? extraModifier* typeSpec IDENTIFIER LPAREN params? RPAREN block ;
+abstractFunctionDecl : accessModifier? extraModifier* typeSpec IDENTIFIER LPAREN params? RPAREN SEMICOLON ;
+
+params : typeSpec IDENTIFIER (COMMA typeSpec IDENTIFIER)* ;
+
+// --- Инструкции ---
+classDecl : CLASS IDENTIFIER LBRACE (fieldDecl | functionDecl)* RBRACE ;
+
+block : LBRACE statement* RBRACE ;
+
+statement 
+    : fieldDecl                      # VarDeclStmt
+    | assignment SEMICOLON           # AssignStmt
+    | ifStatement                    # IfStmt
+    | whileStatement                 # WhileStmt
+    | RETURN expression SEMICOLON    # ReturnStmt
+    | block                          # BlockStmt
+    | expression SEMICOLON           # ExprStmt
+    ;
+
+assignment : (qualifier)? expression ASSIGN expression ;
+
+ifStatement : IF LPAREN expression RPAREN statement (ELSE statement)? ;
+
+whileStatement : WHILE LPAREN expression statement ;
+
+arraySizeSpec : LBRACK expression (COMMA expression)* RBRACK ;
+
+// --- Выражения ---
+// TODO: сделать чтобы синтаксически как к функции можно было обратиться к любому выражению. Сейчас () можно сделать четко после IDENTIFIER
+// TODO: так же сейчас у NEW и REF разные приоритеты. Хз, но мнеп кажется так быть не должно
+expression 
+    : MINUS? NUMBER                              # NumberExpr
+    | IDENTIFIER                                 # IdExpr
+    | LPAREN expression RPAREN                   # ParenExpr
+
+    | STACK IDENTIFIER arraySizeSpec+ arraySpec*   # StackNewArrayExpr
+    | STACK IDENTIFIER LPAREN args? RPAREN         # StackNewExpr
+    | NEW IDENTIFIER arraySizeSpec+ arraySpec*   # NewArrayExpr
+    | NEW IDENTIFIER LPAREN args? RPAREN         # NewExpr
+
+    | LOC expression                             # LocExpr
+
+    | IDENTIFIER LPAREN args? RPAREN             # CallExpr
+    | expression LBRACK args RBRACK              # IndexExpr
+    | expression DOT IDENTIFIER ( LPAREN args? RPAREN )? # MemberAccess
+
+    | expression (MUL | DIV) expression          # MulDivExpr
+    | expression (PLUS | MINUS) expression       # AddSubExpr
+    | expression (LT | GT) expression # LtGtExpr
+    | expression (EQ | NEQ) expression # EqNeqExpr
+    | expression BIT_AND expression # BitAndExpr
+    | expression BIT_XOR expression # BitXorExpr
+    | expression BIT_OR expression # BitOrExpr
+    | expression AND expression # LogicalAndExpr
+    | expression OR expression # LogicalOrExpr
+    ;
+
+args : expression (COMMA expression)* ;

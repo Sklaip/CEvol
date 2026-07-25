@@ -1,0 +1,21 @@
+﻿using CEvol.Analysis.Members.Models;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Core.LogicModels.Expressions
+{
+	public class StructureFieldAccessExpression : Expression
+	{
+		public readonly uint FiledNum;
+		public readonly Expression StructureGetting;
+		public readonly bool ByRef;
+
+		public StructureFieldAccessExpression(uint filedNum, bool byRef, Expression structureGetting, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		{
+			FiledNum = filedNum;
+			ByRef = byRef;
+			StructureGetting = structureGetting;
+		}
+	}
+}

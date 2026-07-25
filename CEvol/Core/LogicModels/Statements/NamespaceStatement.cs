@@ -1,0 +1,16 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Core.LogicModels.Statements
+{
+	public class NamespaceStatement : Statement
+	{
+		public readonly string NameSpace;
+
+		public NamespaceStatement(string nameSpace, IReadOnlyCollection<ILogicModel> childs) : base(childs)
+		{
+			NameSpace = nameSpace;
+		}
+	}
+}

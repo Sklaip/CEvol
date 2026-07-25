@@ -1,0 +1,16 @@
+﻿using CEvol.Analysis.Members.Models;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Core.LogicModels.Expressions
+{
+	public class VariableAccessExpression : Expression
+	{
+		public readonly string Name;
+		public VariableAccessExpression(string name, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		{
+			Name = name;
+		}
+	}
+}

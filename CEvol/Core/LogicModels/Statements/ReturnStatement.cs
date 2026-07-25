@@ -1,0 +1,17 @@
+﻿using CEvol.Core.LogicModels.Expressions;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Core.LogicModels.Statements
+{
+	public class ReturnStatement : Statement
+	{
+		public readonly Expression Value;
+
+		public ReturnStatement(Expression expr) : base([])
+		{
+			Value = expr;
+		}
+	}
+}
