@@ -3,15 +3,15 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Generation
+namespace CEvol.Generation.Accessors
 {
-	internal class HeapAccessor : IValueAccessor
+	internal class LogicalOperationAccessor : IValueAccessor
 	{
-		private readonly LLVMValueRef _constRef;
+		private readonly Func<LLVMValueRef> _builder;
 
-		public HeapAccessor(LLVMValueRef constRef)
+		public LogicalOperationAccessor(Func<LLVMValueRef> builder)
 		{
-			_constRef = constRef;
+			_builder = builder;
 		}
 
 		public LLVMValueRef GetRealValue()
@@ -21,7 +21,7 @@ namespace CEvol.Generation
 
 		public LLVMValueRef GetValue()
 		{
-			return _constRef;
+			return _builder();
 		}
 
 		public void SetValue(LLVMValueRef value)

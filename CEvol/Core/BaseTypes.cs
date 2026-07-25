@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Parsing
+namespace CEvol.Core
 {
 	public enum BaseTypes
 	{

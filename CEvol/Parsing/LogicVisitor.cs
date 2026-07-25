@@ -1,13 +1,11 @@
 ﻿using Antlr4.Runtime.Misc;
 using CEvol.Analysis;
-using CEvol.Analysis.Members;
-using CEvol.Analysis.Members.Models;
 using CEvol.Analysis.Semantic;
+using CEvol.Core;
 using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
-using CEvol.Generation;
+using CEvol.Core.MemebersModels;
 using System.Numerics;
-using static CEvol.Analysis.Semantic.SemanticAnalyzer;
 
 
 namespace CEvol.Parsing
@@ -15,7 +13,7 @@ namespace CEvol.Parsing
 	internal class LogicVisitor : CEvolParserBaseVisitor<Expression?>
 	{
 		private readonly MembersFinder _membersFinder;
-		private readonly SemanticBinder _semanticAnalyzer;
+		private readonly SemanticTreeBuilder _semanticAnalyzer;
 		private readonly TypeAnalyzer _typeAnalyzer;
 
 		public Statement ResultStatement { get; private set; }
@@ -23,7 +21,7 @@ namespace CEvol.Parsing
 		public LogicVisitor(MembersFinder membersFinder)
 		{
 			_typeAnalyzer = new TypeAnalyzer(membersFinder);
-			_semanticAnalyzer = new SemanticBinder(membersFinder, _typeAnalyzer);
+			_semanticAnalyzer = new SemanticTreeBuilder(membersFinder, _typeAnalyzer);
 			_membersFinder = membersFinder;
 		}
 

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Analysis
+namespace CEvol.Core
 {
 	internal enum CompareOperator
 	{

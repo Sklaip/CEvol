@@ -1,9 +1,9 @@
-﻿using CEvol.Analysis.Members.Models;
+﻿using CEvol.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Analysis.Members
+namespace CEvol.Core
 {
 	internal class MembersTable
 	{

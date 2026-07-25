@@ -1,5 +1,5 @@
-﻿using CEvol.Analysis;
-using CEvol.Parsing;
+﻿using CEvol.Core;
+using CEvol.Generation.Accessors;
 using LLVMSharp;
 using LLVMSharp.Interop;
 using Microsoft.Build.Utilities;
@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
-using static CEvol.Analysis.Members.Models.Qualifier;
+using static CEvol.Core.MemebersModels.Qualifier;
 using static CEvol.Generation.FuncAccessData;
 
 namespace CEvol.Generation

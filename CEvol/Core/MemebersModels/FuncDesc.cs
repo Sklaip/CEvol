@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Analysis.Members.Models
+namespace CEvol.Core.MemebersModels
 {
 	public class FuncDesc
 	{

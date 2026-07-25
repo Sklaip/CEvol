@@ -1,5 +1,5 @@
-﻿using CEvol.Analysis.Members.Models;
-using CEvol.Core.LogicModels.Expressions;
+﻿using CEvol.Core.LogicModels.Expressions;
+using CEvol.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Text;

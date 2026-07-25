@@ -1,13 +1,12 @@
 ﻿using Antlr4.Runtime.Misc;
-using CEvol.Analysis.Members;
-using CEvol.Analysis.Members.Models;
+using CEvol.Core;
+using CEvol.Core.MemebersModels;
 using CEvol.Generation;
-using static CEvol.Analysis.Members.Models.Qualifier;
-using static CEvol.Analysis.Semantic.SemanticAnalyzer;
+using static CEvol.Core.MemebersModels.Qualifier;
 
-namespace CEvol.Parsing.Members
+namespace CEvol.Parsing
 {
-	internal class MemberAnalyzer : CEvolParserBaseVisitor<object?>
+	internal class MembersVisitor : CEvolParserBaseVisitor<object?>
 	{
 		public string CurrentNameSpace { get; private set; } = null!;
 		private Dictionary<string, ClassSignature> _classes = new();

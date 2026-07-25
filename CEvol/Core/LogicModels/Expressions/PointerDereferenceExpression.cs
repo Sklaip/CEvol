@@ -1,4 +1,4 @@
-﻿using CEvol.Analysis.Members.Models;
+﻿using CEvol.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

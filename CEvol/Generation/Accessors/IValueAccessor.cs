@@ -1,6 +1,6 @@
 ﻿using LLVMSharp.Interop;
 
-namespace CEvol.Generation
+namespace CEvol.Generation.Accessors
 {
 	internal interface IValueAccessor
 	{

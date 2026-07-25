@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Xml.Linq;
 
-namespace CEvol.Analysis.Members.Models
+namespace CEvol.Core.MemebersModels
 {
 	public readonly struct TypeSpec : IEquatable<TypeSpec>
 	{

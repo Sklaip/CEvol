@@ -1,10 +1,9 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using CEvol.Analysis.Members;
-using CEvol.Analysis.Members.Models;
+using CEvol.Core;
 using CEvol.Core.LogicModels.Statements;
+using CEvol.Core.MemebersModels;
 using CEvol.Generation;
-using CEvol.Parsing.Members;
 using LLVMSharp.Interop;
 using System.Runtime.InteropServices;
 
@@ -24,7 +23,7 @@ namespace CEvol.Parsing
 
 			IParseTree tree = parser.program();
 
-			var analyzer = new MemberAnalyzer();
+			var analyzer = new MembersVisitor();
 			analyzer.Visit(tree);
 
 			var codeGenerator = new CodeGenerator(analyzer.CurrentNameSpace);

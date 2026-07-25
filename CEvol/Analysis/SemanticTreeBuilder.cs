@@ -1,16 +1,15 @@
-﻿using CEvol.Analysis.Members;
-using CEvol.Analysis.Members.Models;
-using CEvol.Analysis.Semantic;
+﻿using CEvol.Analysis.Semantic;
+using CEvol.Core;
 using CEvol.Core.LogicModels;
 using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
-using CEvol.Parsing;
+using CEvol.Core.MemebersModels;
 using System.Numerics;
-using static CEvol.Analysis.Members.Models.Qualifier;
+using static CEvol.Core.MemebersModels.Qualifier;
 
 namespace CEvol.Analysis
 {
-	internal class SemanticBinder
+	internal class SemanticTreeBuilder
 	{
 		private readonly MembersFinder _membersFinder;
 		private readonly TypeAnalyzer _typeAnalyzer;
@@ -36,7 +35,7 @@ namespace CEvol.Analysis
 			}
 		}
 
-		public SemanticBinder(MembersFinder membersFinder, TypeAnalyzer typeAnalyzer)
+		public SemanticTreeBuilder(MembersFinder membersFinder, TypeAnalyzer typeAnalyzer)
 		{
 			_membersFinder = membersFinder;
 			_typeAnalyzer = typeAnalyzer;

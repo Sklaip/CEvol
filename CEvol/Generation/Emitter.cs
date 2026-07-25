@@ -1,10 +1,11 @@
 ﻿using Antlr4.Runtime.Atn;
 using CEvol.Analysis;
-using CEvol.Analysis.Members.Models;
 using CEvol.Analysis.Semantic;
+using CEvol.Core;
 using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
-using CEvol.Parsing;
+using CEvol.Core.MemebersModels;
+using CEvol.Generation.Accessors;
 
 namespace CEvol.Generation
 {
