@@ -32,15 +32,6 @@ namespace CEvol.Parsing
 			var finder = new MembersFinder(table);
 			finder.AddNamespace(analyzer.CurrentNameSpace);
 
-
-			//var visitor = new SyntaxParser(finder, codeGenerator);
-			//visitor.Visit(tree);
-
-			//var module = codeGenerator.GetModule();
-			//module.Dump();
-			//codeGenerator.VerifyModule();
-			//Compile(module);
-
 			var test = new LogicVisitor(finder);
 			test.Visit(tree);
 			var statement = test.ResultStatement;

@@ -109,6 +109,25 @@ namespace CEvol.Analysis
 			_blocks.Push(new CodeBlock(statement, childs, variables, currentFunction, currentClass));
 		}
 
+		public void EnterToWhileBlock(Expression condition)
+		{
+			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
+				throw new NotImplementedException();
+
+			var childs = new List<ILogicModel>();
+			var statement = new WhileStatement(childs, condition);
+
+			CodeBlock block = _blocks.Peek();
+			block.StatementChilds.Add(statement);
+			var currentFunction = block.CurrentFunction;
+			if (currentFunction == null) throw new NotImplementedException();
+			var currentClass = block.CurrentClass;
+			var variables = new Dictionary<string, Expression>(block.Variables);
+
+			_blocks.Push(new CodeBlock(statement, childs, variables, currentFunction, currentClass));
+		}
+
+
 		public Statement ExitFromBlock()
 		{
 			return _blocks.Pop().CurentStatement;

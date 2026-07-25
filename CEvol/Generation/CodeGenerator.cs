@@ -32,7 +32,7 @@ namespace CEvol.Generation
 		LLVMTypeRef _mallocType;
 		LLVMValueRef _mallocFunc;
 
-		private Stack<LLVMBasicBlockRef> _nestedBlocks = new();
+		private Stack<LLVMBasicBlockRef> _activeBlocks = new();
 
 		public readonly TypeRef PointerType;
 
@@ -232,15 +232,42 @@ namespace CEvol.Generation
 			_builder.BuildCondBr(condition.GetValue(), ifBlock, endIfBlock);
 			_builder.PositionAtEnd(ifBlock);
 
-			_nestedBlocks.Push(endIfBlock);
-
+			_activeBlocks.Push(endIfBlock);
 		}
 
 		public void EndIfBlock()
 		{
-			LLVMBasicBlockRef endIfBlock = _nestedBlocks.Pop();
+			LLVMBasicBlockRef endIfBlock = _activeBlocks.Pop();
 			_builder.BuildBr(endIfBlock);
 			_builder.PositionAtEnd(endIfBlock);
+		}
+
+		public void CreateWhileBlock(IValueAccessor condition)
+		{
+			if (_currentFunction == null) throw new NotImplementedException();
+			var func = _currentFunction.Value;
+
+			LLVMBasicBlockRef conditionBlock = _context.AppendBasicBlock(func, "while.condition");
+			LLVMBasicBlockRef bodyBlock = _context.AppendBasicBlock(func, "while.body");
+			LLVMBasicBlockRef endBlock = _context.AppendBasicBlock(func, "while.merge");
+
+			_builder.BuildBr(conditionBlock);
+			_builder.PositionAtEnd(conditionBlock);
+
+			_builder.BuildCondBr(condition.GetValue(), bodyBlock, endBlock);
+			_builder.PositionAtEnd(bodyBlock);
+
+			_activeBlocks.Push(endBlock);
+			_activeBlocks.Push(conditionBlock);
+		}
+
+		public void EndWhileBlock()
+		{
+			LLVMBasicBlockRef conditionBlock = _activeBlocks.Pop();
+			LLVMBasicBlockRef endWhileBlock = _activeBlocks.Pop();
+
+			_builder.BuildBr(conditionBlock);
+			_builder.PositionAtEnd(endWhileBlock);
 		}
 
 		// TODO: надо сделать оптимизацию чтобы все BuildAlloca вызывались в самом начале метода

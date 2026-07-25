@@ -344,7 +344,19 @@ namespace CEvol.Parsing
 			return null;
 		}
 
+		public override Expression? VisitWhileStmt([NotNull] CEvolParser.WhileStmtContext context)
+		{
+			var ctx = context.whileStatement();
 
+			var condition = Visit(ctx.expression());
+			if (condition == null) throw new NotImplementedException();
+
+			_semanticAnalyzer.EnterToWhileBlock(condition);
+			Visit(ctx.block());
+			_semanticAnalyzer.ExitFromBlock();
+
+			return null;
+		}
 
 		public override Expression? VisitIdExpr([NotNull] CEvolParser.IdExprContext context)
 		{

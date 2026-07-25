@@ -51,7 +51,7 @@ assignment : (qualifier)? expression ASSIGN expression ;
 
 ifStatement : IF LPAREN expression RPAREN statement (ELSE statement)? ;
 
-whileStatement : WHILE LPAREN expression statement ;
+whileStatement : WHILE LPAREN expression RPAREN block ;
 
 arraySizeSpec : LBRACK expression (COMMA expression)* RBRACK ;
 

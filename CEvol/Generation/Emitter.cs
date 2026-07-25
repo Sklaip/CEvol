@@ -49,6 +49,9 @@ namespace CEvol.Generation
 				case ReturnStatement returnStatement:
 					HandleReturnStatement(returnStatement);
 					break;
+				case WhileStatement whileStatement:
+					HandleWhileStatement(whileStatement);
+					break;
 				default:
 					throw new NotImplementedException();
 			}
@@ -130,6 +133,21 @@ namespace CEvol.Generation
 		private void HandleReturnStatement(ReturnStatement statement)
 		{
 			_codeGenerator.AddReturn(HandleExpression(statement.Value));
+		}
+
+		private void HandleWhileStatement(WhileStatement statement)
+		{
+			var condition = HandleExpression(statement.Condition);
+			_codeGenerator.CreateWhileBlock(condition);
+
+			foreach (var child in statement.Childs)
+			{
+				if ((child is Statement stm)) HandleStatement(stm);
+				else if (child is Expression expr) HandleExpression(expr);
+				else throw new NotImplementedException();
+			}
+
+			_codeGenerator.EndWhileBlock();
 		}
 
 		private IValueAccessor HandleExpression(Expression expression)
