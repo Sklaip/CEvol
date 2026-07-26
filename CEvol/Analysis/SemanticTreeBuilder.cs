@@ -83,7 +83,7 @@ namespace CEvol.Analysis
 
 			var variables = new Dictionary<string, Expression>();
 
-			foreach(var param in parameters)
+			foreach (var param in parameters)
 			{
 				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type);
 			}
@@ -164,7 +164,7 @@ namespace CEvol.Analysis
 			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec));
 
 			Expression[] realArgs = new Expression[arguments.Length + 1];
-			realArgs[0] = instanceGetting;
+			realArgs[0] = instanceGetting.ResultTypeSpec.IsRef ? instanceGetting : new GetPointerToVarExpression(instanceGetting);
 
 			for (int i = 1; i <= arguments.Length; i++)
 			{
