@@ -19,15 +19,15 @@ namespace CEvol.Core.MemebersModels
 			}
 		}
 
-		public readonly TypeSpec? ReturnType;
+		public readonly TypeSpec ReturnType;
 		public readonly string Name;
 		public readonly Argument[] Arguments;
 		public readonly FuncRefData RefData;
 		public readonly bool IsInfArgs;
 
-		public FuncDesc(TypeSpec? type, string name, Argument[] arguments, FuncRefData refData, bool isInfArgs)
+		public FuncDesc(TypeSpec returnType, string name, Argument[] arguments, FuncRefData refData, bool isInfArgs)
 		{
-			ReturnType = type;
+			ReturnType = returnType;
 			Name = name;
 			Arguments = arguments;
 			RefData = refData;

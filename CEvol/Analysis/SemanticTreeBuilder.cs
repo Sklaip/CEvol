@@ -130,7 +130,19 @@ namespace CEvol.Analysis
 
 		public Statement ExitFromBlock()
 		{
-			return _blocks.Pop().CurentStatement;
+			var block = _blocks.Pop();
+			Statement statement = block.CurentStatement;
+
+			if (statement is FunctionStatement fnStatement)
+			{
+				var voidType = _membersFinder.FindType("void");
+				if (fnStatement.FunctionSignature.ReturnType.Type == voidType)
+				{
+					block.StatementChilds.Add(new ReturnStatement(new SimpleTypeExpression(new TypeSpec(voidType))));
+				}
+			}
+
+			return statement;
 		}
 
 		public void InserToCurrentBlock(Expression expression)
@@ -144,7 +156,7 @@ namespace CEvol.Analysis
 			var currentFunction = block.CurrentFunction;
 			if (currentFunction == null) throw new NotImplementedException();
 
-			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.FunctionSignature.ReturnType.Value.Type, returnResult.ResultTypeSpec.Type))
+			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.FunctionSignature.ReturnType.Type, returnResult.ResultTypeSpec.Type))
 				throw new NotImplementedException();
 			// TODO: так же проверить AdditionalTypes
 

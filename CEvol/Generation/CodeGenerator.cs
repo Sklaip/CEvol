@@ -83,7 +83,14 @@ namespace CEvol.Generation
 			_funcReturnBlock = _context.AppendBasicBlock(funcData.FuncRef, $"{funcName}.end");
 			_builder.PositionAtEnd(funcEntry);
 
-			_funcReturnValuePtr = _builder.BuildAlloca(_retType.Value, $"{funcName}.return.value");
+			if (_retType != _context.VoidType)
+			{
+				_funcReturnValuePtr = _builder.BuildAlloca(resultType.Type, $"{funcName}.return.value");
+			}
+			else
+			{
+				_funcReturnValuePtr = null;
+			}
 
 			int count = argumentsTypes.Count();
 			var result = new IValueAccessor[count];
@@ -101,24 +108,38 @@ namespace CEvol.Generation
 			return new FuncAccessData(result, funcData);
 		}
 
-		public void AddReturn(IValueAccessor returnValue)
+		public void AddReturn(IValueAccessor? returnValue)
 		{
-			if (_funcReturnValuePtr == null || _funcReturnBlock == null)
+			if (_funcReturnBlock == null)
 				throw new NotImplementedException();
 
-			_builder.BuildStore(returnValue.GetValue(), _funcReturnValuePtr.Value);
+			if (_funcReturnValuePtr != null)
+			{
+				if (returnValue == null)
+					throw new NotImplementedException();
+				_builder.BuildStore(returnValue.GetValue(), _funcReturnValuePtr.Value);
+			}
+
 			_builder.BuildBr(_funcReturnBlock.Value);
 		}
 
 		public void StopFunctionBodyFill()
 		{
-			if (_funcReturnValuePtr == null || _funcReturnBlock == null || _retType == null)
+			if (_funcReturnBlock == null)
 				throw new NotImplementedException();
 
-			//_builder.BuildBr(_funcReturnBlock.Value);
 			_builder.PositionAtEnd(_funcReturnBlock.Value);
-			var returnValue = _builder.BuildLoad2(_retType.Value, _funcReturnValuePtr.Value);
-			_builder.BuildRet(returnValue);
+
+			if (_retType != null && _funcReturnValuePtr != null)
+			{
+				var returnValue = _builder.BuildLoad2(_retType.Value, _funcReturnValuePtr.Value);
+				_builder.BuildRet(returnValue);
+			}
+			else
+			{
+				_builder.BuildRetVoid();
+			}
+
 		}
 
 		public IValueAccessor FunctionCall(FuncRefData funcDesc, IValueAccessor[] valueAccessors)

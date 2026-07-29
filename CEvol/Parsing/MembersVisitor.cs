@@ -20,7 +20,6 @@ namespace CEvol.Parsing
 		private record VariableSignature(string Name, TypeDeclaring Type);
 		private record ClassSignature(string Name, Dictionary<string, List<FuncSignature>> Functions, Dictionary<string, VariableSignature> Fields);
 
-
 		public override object? VisitNamespaceDecl([NotNull] CEvolParser.NamespaceDeclContext context)
 		{
 			CurrentNameSpace = context.IDENTIFIER().GetText();
@@ -173,9 +172,6 @@ namespace CEvol.Parsing
 
 		public string ParseArraySpec([NotNull] CEvolParser.ArraySpecContext context)
 		{
-			if (context.COMMA().Length > 0)
-				throw new NotImplementedException(); // TODO: сделать многомерные массив
-
 			return "array";
 		}
 

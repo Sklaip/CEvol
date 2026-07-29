@@ -49,6 +49,7 @@ namespace CEvol.Parsing
 		private MembersTable BuildBaseMembersList(CodeGenerator codeGenerator)
 		{
 			var types = new Dictionary<string, TypeDesc>();
+			types["void"] = new TypeDesc("void", codeGenerator.GetType(BaseTypes.Void));
 			types["bool"] = new TypeDesc("bool", codeGenerator.GetType(BaseTypes.Bool));
 			types["byte"] = new TypeDesc("byte", codeGenerator.GetType(BaseTypes.Byte));
 			types["short"] = new TypeDesc("short", codeGenerator.GetType(BaseTypes.Short));

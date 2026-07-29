@@ -290,9 +290,6 @@ namespace CEvol.Parsing
 
 		public string ParseArraySpec([NotNull] CEvolParser.ArraySpecContext context)
 		{
-			if (context.COMMA().Length > 0)
-				throw new NotImplementedException(); // TODO: сделать многомерные массив
-
 			return "array";
 		}
 

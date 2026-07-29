@@ -10,7 +10,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly FuncDesc Function;
 		public readonly Expression[] Arguments;
 
-		public CallFunctionExpression(Expression[] arguments, FuncDesc function) : base(function.ReturnType.Value)
+		public CallFunctionExpression(Expression[] arguments, FuncDesc function) : base(function.ReturnType)
 		{
 			Arguments = arguments;
 			Function = function;

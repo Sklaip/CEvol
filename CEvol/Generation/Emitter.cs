@@ -78,7 +78,7 @@ namespace CEvol.Generation
 
 			FuncRefData refData = statement.FunctionSignature.RefData;
 			string name = statement.FunctionSignature.Name;
-			TypeRef returnType = statement.FunctionSignature.ReturnType.Value.Type.TypeRef;
+			TypeRef returnType = GetActualTypeRef(statement.FunctionSignature.ReturnType);
 
 			var funcData = _codeGenerator.StartFunctionBodyFill(refData, name, returnType, argumentsTypes);
 
@@ -132,7 +132,15 @@ namespace CEvol.Generation
 
 		private void HandleReturnStatement(ReturnStatement statement)
 		{
-			_codeGenerator.AddReturn(HandleExpression(statement.Value));
+			Expression resExpr = statement.Value;
+			if(resExpr.ResultTypeSpec.Type.Name != "void")
+			{
+				_codeGenerator.AddReturn(HandleExpression(resExpr));
+			}
+			else
+			{
+				_codeGenerator.AddReturn(null);
+			}			
 		}
 
 		private void HandleWhileStatement(WhileStatement statement)
