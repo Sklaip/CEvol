@@ -4,8 +4,10 @@ using CEvol.Core;
 using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using CEvol.Generation;
+using LLVMSharp;
 using LLVMSharp.Interop;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace CEvol.Parsing
 {
@@ -13,12 +15,19 @@ namespace CEvol.Parsing
 	{
 		public void Prase(string sourceCode)
 		{
+			// 1. Инициализируем подсистемы LLVM В САМОМ НАЧАЛЕ
+			LLVM.InitializeNativeTarget();
+			LLVM.InitializeNativeAsmPrinter();
+			LLVM.InitializeNativeAsmParser();
+
+			LLVM.InitializeAllTargetInfos();
+			LLVM.InitializeAllTargets();
+			LLVM.InitializeAllTargetMCs();
+			LLVM.InitializeAllAsmPrinters();
+
 			ICharStream stream = CharStreams.fromString(sourceCode);
-
 			var lexer = new CEvolLexer(stream);
-
 			ITokenStream tokenStream = new CommonTokenStream(lexer);
-
 			var parser = new CEvolParser(tokenStream);
 
 			IParseTree tree = parser.program();
@@ -40,10 +49,15 @@ namespace CEvol.Parsing
 			emmitter.Build((NamespaceStatement)statement);
 
 			var module = emmitter.CodeGenerator.GetModule();
-			module.Dump();
-			codeGenerator.VerifyModule();
-			Compile(module);
 
+			Console.WriteLine("================ ИСХОДНЫЙ IR ================");
+			module.Dump();
+
+			Optimize(module);
+
+			codeGenerator.VerifyModule();
+
+			Compile(module);
 		}
 
 		private MembersTable BuildBaseMembersList(CodeGenerator codeGenerator)
@@ -73,14 +87,63 @@ namespace CEvol.Parsing
 			return new MembersTable([], types);
 		}
 
+		private unsafe static void Optimize(LLVMModuleRef module)
+		{
+			// Создаем TargetMachine
+			var triple = LLVMTargetRef.DefaultTriple;
+			var target = LLVMTargetRef.GetTargetFromTriple(triple);
+
+			// Внимание: CreateTargetMachine возвращает LLVMTargetMachineRef struct
+			var targetMachine = target.CreateTargetMachine(
+				triple,
+				"generic",
+				"",
+				LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault,
+				LLVMRelocMode.LLVMRelocDefault,
+				LLVMCodeModel.LLVMCodeModelDefault
+			);
+
+			// Создаем опции пасс-билдера
+			LLVMOpaquePassBuilderOptions* passOptions = LLVM.CreatePassBuilderOptions();
+
+			// Подготавливаем строку с пайплайном в формате C-string (sbyte*)
+			byte[] passesBytes = Encoding.UTF8.GetBytes("default<O2>\0"); // обязательно null-terminated
+
+			LLVMOpaqueError* error = null;
+
+			fixed (byte* pPasses = passesBytes)
+			{
+				// Вызываем RunPasses с приведением типов к сырым указателям (*):
+				error = LLVM.RunPasses(
+					(LLVMOpaqueModule*)module.Handle,               // module -> LLVMOpaqueModule*
+					(sbyte*)pPasses,                                // string -> sbyte*
+					(LLVMOpaqueTargetMachine*)targetMachine.Handle, // targetMachine -> LLVMOpaqueTargetMachine*
+					passOptions                                     // options
+				);
+			}
+
+			// Проверяем на ошибки
+			if (error != null)
+			{
+				sbyte* errMsg = LLVM.GetErrorMessage(error);
+				string message = Marshal.PtrToStringUTF8((IntPtr)errMsg);
+				Console.WriteLine($"Ошибка оптимизации: {message}");
+				LLVM.DisposeErrorMessage(errMsg);
+			}
+			else
+			{
+				string optimizedIR = module.PrintToString();
+				Console.WriteLine("\n================ ОПТИМИЗИРОВАННЫЙ IR ================");
+				Console.WriteLine(optimizedIR);
+			}
+
+			// Освобождать нужно ВСЕГДА после завершения
+			LLVM.DisposePassBuilderOptions(passOptions);
+			//targetMachine.Dispose();
+		}
+
 		private static void Compile(LLVMModuleRef module)
 		{
-			// 1. Инициализируем подсистему генерации кода LLVM
-			LLVM.InitializeAllTargetInfos();
-			LLVM.InitializeAllTargets();
-			LLVM.InitializeAllTargetMCs();
-			LLVM.InitializeAllAsmPrinters();
-
 			// 2. Получаем целевую платформу по умолчанию (Target Triple)
 			// Например: "x86_64-pc-windows-msvc" или "x86_64-unknown-linux-gnu"
 			string triple = LLVMTargetRef.DefaultTriple;
@@ -122,7 +185,7 @@ namespace CEvol.Parsing
 		{
 			using var process = new System.Diagnostics.Process();
 
-			process.StartInfo.FileName = "D:\\Programs\\LLVM\\bin\\clang.exe";
+			process.StartInfo.FileName = "clang";
 			process.StartInfo.Arguments = $"{objFile} -o {exeFile} -llegacy_stdio_definitions";
 
 			process.StartInfo.UseShellExecute = false;

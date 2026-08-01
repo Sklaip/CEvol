@@ -190,6 +190,14 @@ namespace CEvol.Parsing
 			return _semanticAnalyzer.GetPointerToVar(value);
 		}
 
+		public override Expression VisitRefExpr([NotNull] CEvolParser.RefExprContext context)
+		{
+			var value = Visit(context.expression());
+			if (value == null) throw new NotImplementedException();
+
+			return _semanticAnalyzer.SetRefQualifier(value);
+		}
+
 		public override Expression? VisitNewExpr([NotNull] CEvolParser.NewExprContext context)
 		{
 			string? className = context.IDENTIFIER()?.GetText();

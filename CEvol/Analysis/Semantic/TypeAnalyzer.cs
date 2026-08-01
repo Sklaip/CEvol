@@ -22,7 +22,7 @@ namespace CEvol.Analysis.Semantic
 
 			public bool Equals(TypeSpec x, TypeSpec y)
 			{
-				return _typeAnalyzer.StrictCheckTypeMatching(x.Type, y.Type);
+				return _typeAnalyzer.StrictCheckTypeMatching(x.Type, y.Type) && x.QualifiersEquals(y);
 			}
 
 			public int GetHashCode([DisallowNull] TypeSpec obj)

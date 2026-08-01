@@ -32,10 +32,15 @@ namespace CEvol.Core.MemebersModels
 			Qualifiers = qualifiers;
 		}
 
+		public bool QualifiersEquals(TypeSpec other)
+		{
+			return other.Qualifiers != null && Qualifiers != null && Qualifiers.SequenceEqual(other.Qualifiers);
+		}
+
+
 		public bool Equals(TypeSpec other)
 		{
-			return Type == other.Type && other.Qualifiers != null && Qualifiers != null &&
-				Qualifiers.SequenceEqual(other.Qualifiers);
+			return Type == other.Type && QualifiersEquals(other);
 		}
 
 		public bool Equals(TypeSpec other, Qualifier passQualifier)

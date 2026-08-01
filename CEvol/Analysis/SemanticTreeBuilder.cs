@@ -156,6 +156,8 @@ namespace CEvol.Analysis
 			var currentFunction = block.CurrentFunction;
 			if (currentFunction == null) throw new NotImplementedException();
 
+			returnResult = AutoDereferenceIfPointer(returnResult);
+
 			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.FunctionSignature.ReturnType.Type, returnResult.ResultTypeSpec.Type))
 				throw new NotImplementedException();
 			// TODO: так же проверить AdditionalTypes
@@ -163,14 +165,18 @@ namespace CEvol.Analysis
 			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult));
 		}
 
-		public Expression CallFunction(string name, Expression[] arguments)
+		public Expression CallFunction(string name, Expression[] args)
 		{
+			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
+
 			FuncDesc funcDesc = _typeAnalyzer.FindSuitableFunction(_membersFinder.FindFunction(name), arguments.Select(x => x.ResultTypeSpec));
 			return new CallFunctionExpression(arguments, funcDesc);
 		}
 
-		public Expression CallClassMethod(string name, Expression instanceGetting, Expression[] arguments)
+		public Expression CallClassMethod(string name, Expression instanceGetting, Expression[] args)
 		{
+			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
+
 			// TODO: проверить instanceGetting на валидность
 			var func = _membersFinder.FindFunction(instanceGetting.ResultTypeSpec.Type, name);
 			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec));
@@ -222,7 +228,10 @@ namespace CEvol.Analysis
 		public GetPointerToVarExpression GetPointerToVar(Expression variable)
 		{
 			// TODO: сделать проверку на что что это реально переменная, а не какая-нибудь хуета, чтобы нельзя было написать ref 1
-			return new GetPointerToVarExpression(variable);
+			var expr = new GetPointerToVarExpression(variable);
+			expr.DoNotAutoDereferenceIfPointer = true;
+
+			return expr;
 		}
 
 		public SimpleBinaryOperationExpression Sum(Expression left, Expression right)
@@ -425,7 +434,7 @@ namespace CEvol.Analysis
 
 		public Expression AutoDereferenceIfPointer(Expression expr)
 		{
-			if (!expr.ResultTypeSpec.IsRef) return expr;
+			if (!expr.ResultTypeSpec.IsRef || expr.DoNotAutoDereferenceIfPointer) return expr;
 			return new PointerDereferenceExpression(expr);
 		}
 
@@ -447,15 +456,10 @@ namespace CEvol.Analysis
 			return value;
 		}
 
-		private BaseTypes TypeToBaseType(TypeDesc desc)
+		public Expression SetRefQualifier(Expression expr)
 		{
-			switch (desc.Name)
-			{
-				case "int": return BaseTypes.Int;
-				case "byte": return BaseTypes.Byte;
-				case "bool": return BaseTypes.Bool;
-				default: throw new NotImplementedException();
-			}
+			expr.DoNotAutoDereferenceIfPointer = true;
+			return expr;
 		}
 
 		private TypeDesc TypeNameToTypeDesc(string typeName)

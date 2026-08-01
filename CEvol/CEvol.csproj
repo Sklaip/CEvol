@@ -8,6 +8,7 @@
 		<Platforms>AnyCPU;x64;x86</Platforms>
 
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>

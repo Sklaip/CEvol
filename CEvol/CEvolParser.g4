@@ -69,6 +69,7 @@ expression
     | NEW IDENTIFIER LPAREN args? RPAREN         # NewExpr
 
     | LOC expression                             # LocExpr
+    | REF expression                             # RefExpr
 
     | IDENTIFIER LPAREN args? RPAREN             # CallExpr
     | expression LBRACK args RBRACK              # IndexExpr
