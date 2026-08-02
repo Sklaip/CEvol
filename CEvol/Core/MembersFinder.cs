@@ -34,21 +34,21 @@ namespace CEvol.Core
 			throw new NotImplementedException();
 		}
 
-		public FuncDesc[] FindFunction(string name)
+		public FuncDesc[]? FindFunction(string name)
 		{
 			return FindFunction(_membersTable.Functions, name);
 		}
 
-		public FuncDesc[] FindFunction(TypeDesc parentType, string name)
+		public FuncDesc[]? FindFunction(TypeDesc parentType, string name)
 		{
 			return FindFunction(parentType.Functions, name);
 		}
 
-		private FuncDesc[] FindFunction(Dictionary<string, FuncDesc[]> functionsList, string name)
+		private FuncDesc[]? FindFunction(Dictionary<string, FuncDesc[]> functionsList, string name)
 		{
 			if (!functionsList.TryGetValue(name, out FuncDesc[] functions))
 			{
-				throw new NotImplementedException();
+				return null;
 			}
 
 			return functions;

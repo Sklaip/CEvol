@@ -47,7 +47,7 @@ namespace CEvol.Analysis.Semantic
 			return Is(second, first);
 		}
 
-		public FuncDesc FindSuitableFunction(FuncDesc[] functions, IEnumerable<TypeSpec> arguments)
+		public FuncDesc? FindSuitableFunction(FuncDesc[] functions, IEnumerable<TypeSpec> arguments)
 		{
 			foreach (var func in functions)
 			{
@@ -64,7 +64,7 @@ namespace CEvol.Analysis.Semantic
 				}
 			}
 
-			throw new NotImplementedException();
+			return null;
 		}
 
 		private bool Is(TypeDesc to, TypeDesc from)

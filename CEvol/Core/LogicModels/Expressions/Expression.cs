@@ -8,7 +8,6 @@ namespace CEvol.Core.LogicModels.Expressions
 	public abstract class Expression : ILogicModel
 	{
 		public readonly TypeSpec ResultTypeSpec;
-		public bool DoNotAutoDereferenceIfPointer { get; set; } = false;
 
 		protected Expression(TypeSpec resultTypeSpec)
 		{

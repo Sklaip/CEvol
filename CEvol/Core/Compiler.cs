@@ -26,7 +26,9 @@ namespace CEvol.Core
 			LLVM.InitializeAllTargetMCs();
 			LLVM.InitializeAllAsmPrinters();
 
-			ICharStream stream = CharStreams.fromString(File.ReadAllText(inputFile));
+			var fileContent = File.ReadAllText(inputFile);
+
+			ICharStream stream = CharStreams.fromString(fileContent);
 			var lexer = new CEvolLexer(stream);
 			ITokenStream tokenStream = new CommonTokenStream(lexer);
 			var parser = new CEvolParser(tokenStream);
@@ -42,23 +44,35 @@ namespace CEvol.Core
 			var finder = new MembersFinder(table);
 			finder.AddNamespace(analyzer.CurrentNameSpace);
 
-			var test = new LogicVisitor(finder);
+			var errorsBag = new ErrorsBag(new Dictionary<string, string>()
+			{
+				[inputFile] = fileContent
+			});
+
+			var test = new LogicVisitor(finder, errorsBag, inputFile);
 			test.Visit(tree);
 			var statement = test.ResultStatement;
 
-			var emmitter = new Emitter(codeGenerator);
-			emmitter.Build((NamespaceStatement)statement);
+			if (!errorsBag.HasErrors)
+			{
+				var emmitter = new Emitter(codeGenerator);
+				emmitter.Build((NamespaceStatement)statement);
 
-			var module = emmitter.CodeGenerator.GetModule();
+				var module = emmitter.CodeGenerator.GetModule();
 
-			Console.WriteLine("================ ИСХОДНЫЙ IR ================");
-			module.Dump();
+				Console.WriteLine("================ ИСХОДНЫЙ IR ================");
+				module.Dump();
 
-			Optimize(module);
+				Optimize(module);
 
-			codeGenerator.VerifyModule();
+				codeGenerator.VerifyModule();
 
-			Compile(module);
+				Compile(module);
+			}
+			else
+			{
+				Console.WriteLine(errorsBag.BuildErrorsMessage());
+			}
 		}
 
 

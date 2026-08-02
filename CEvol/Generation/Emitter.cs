@@ -190,6 +190,8 @@ namespace CEvol.Generation
 					return PointerDereference(pointerDereference);
 				case StructureFieldAccessExpression structureFieldAccess:
 					return StructureFiledAccess(structureFieldAccess);
+				case DoNotAutoDereferenceIfPointerExpression doNotAutoDereferenceIfPointerExpression:
+					return HandleExpression(doNotAutoDereferenceIfPointerExpression.Expression);
 				default:
 					throw new NotImplementedException();
 			}

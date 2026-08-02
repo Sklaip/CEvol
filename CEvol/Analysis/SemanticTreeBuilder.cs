@@ -11,10 +11,15 @@ namespace CEvol.Analysis
 {
 	internal class SemanticTreeBuilder
 	{
+		public const string COMPILATION_LAYER = "BasicSemanticsValidator";
+
 		private readonly MembersFinder _membersFinder;
 		private readonly TypeAnalyzer _typeAnalyzer;
+		private readonly ErrorsBag _errorsBag;
 
 		private Stack<CodeBlock> _blocks = new();
+
+		public PositionInSources CurrentPosition { get; set; }
 
 		private class CodeBlock
 		{
@@ -35,10 +40,11 @@ namespace CEvol.Analysis
 			}
 		}
 
-		public SemanticTreeBuilder(MembersFinder membersFinder, TypeAnalyzer typeAnalyzer)
+		public SemanticTreeBuilder(MembersFinder membersFinder, TypeAnalyzer typeAnalyzer, ErrorsBag errorsBag)
 		{
 			_membersFinder = membersFinder;
 			_typeAnalyzer = typeAnalyzer;
+			_errorsBag = errorsBag;
 		}
 
 		public void EnterToNameSpace(string nameSpace)
@@ -66,14 +72,34 @@ namespace CEvol.Analysis
 			CodeBlock block = _blocks.Peek();
 			var currentClass = block.CurrentClass;
 
-			FuncDesc funcDesc;
+			FuncDesc? funcDesc = null;
 			if (currentClass != null)
 			{
-				funcDesc = _typeAnalyzer.FindSuitableFunction(_membersFinder.FindFunction(currentClass.TypeDesc, funcName), parameters.Select(x => x.Type));
+				var functions = _membersFinder.FindFunction(currentClass.TypeDesc, funcName);
+				if (functions == null)
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A function with that name was not found", CurrentPosition);
+					return;
+				}
+
+				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type));
 			}
 			else
 			{
-				funcDesc = _typeAnalyzer.FindSuitableFunction(_membersFinder.FindFunction(funcName), parameters.Select(x => x.Type));
+				var functions = _membersFinder.FindFunction(funcName);
+				if (functions == null)
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A function with that name was not found", CurrentPosition);
+					return;
+				}
+
+				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type));
+			}
+
+			if (funcDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
+				return;
 			}
 
 			var childs = new List<ILogicModel>();
@@ -94,7 +120,10 @@ namespace CEvol.Analysis
 		public void EnterToIfBlock(Expression condition)
 		{
 			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
-				throw new NotImplementedException();
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The expression passed to 'if' must be of type bool", CurrentPosition);
+				return;
+			}
 
 			var childs = new List<ILogicModel>();
 			var statement = new IfStatement(childs, condition, null, null);
@@ -159,7 +188,10 @@ namespace CEvol.Analysis
 			returnResult = AutoDereferenceIfPointer(returnResult);
 
 			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.FunctionSignature.ReturnType.Type, returnResult.ResultTypeSpec.Type))
-				throw new NotImplementedException();
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Invalid return type", CurrentPosition);
+				return;
+			}
 			// TODO: так же проверить AdditionalTypes
 
 			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult));
@@ -169,7 +201,21 @@ namespace CEvol.Analysis
 		{
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
-			FuncDesc funcDesc = _typeAnalyzer.FindSuitableFunction(_membersFinder.FindFunction(name), arguments.Select(x => x.ResultTypeSpec));
+			var functions = _membersFinder.FindFunction(name);
+			if (functions == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A function with that name was not found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			FuncDesc? funcDesc = _typeAnalyzer.FindSuitableFunction(functions, arguments.Select(x => x.ResultTypeSpec));
+
+			if (funcDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
 			return new CallFunctionExpression(arguments, funcDesc);
 		}
 
@@ -179,7 +225,19 @@ namespace CEvol.Analysis
 
 			// TODO: проверить instanceGetting на валидность
 			var func = _membersFinder.FindFunction(instanceGetting.ResultTypeSpec.Type, name);
+			if (func == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A method with that name was not found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
 			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec));
+
+			if (funcDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			Expression[] realArgs = new Expression[arguments.Length + 1];
 			realArgs[0] = instanceGetting.ResultTypeSpec.IsRef ? instanceGetting : new GetPointerToVarExpression(instanceGetting);
@@ -214,7 +272,10 @@ namespace CEvol.Analysis
 		public Expression ClassFieldAccess(Expression instanceGetting, string fieldName)
 		{
 			if (!instanceGetting.ResultTypeSpec.Type.Variables.TryGetValue(fieldName, out VariableDesc variable))
-				throw new NotImplementedException();
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The class field does not exist", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			return new StructureFieldAccessExpression(variable.Order, instanceGetting.ResultTypeSpec.IsRef, instanceGetting, variable.Declaring);
 		}
@@ -229,7 +290,6 @@ namespace CEvol.Analysis
 		{
 			// TODO: сделать проверку на что что это реально переменная, а не какая-нибудь хуета, чтобы нельзя было написать ref 1
 			var expr = new GetPointerToVarExpression(variable);
-			expr.DoNotAutoDereferenceIfPointer = true;
 
 			return expr;
 		}
@@ -434,7 +494,7 @@ namespace CEvol.Analysis
 
 		public Expression AutoDereferenceIfPointer(Expression expr)
 		{
-			if (!expr.ResultTypeSpec.IsRef || expr.DoNotAutoDereferenceIfPointer) return expr;
+			if (!expr.ResultTypeSpec.IsRef || expr is GetPointerToVarExpression || expr is DoNotAutoDereferenceIfPointerExpression) return expr;
 			return new PointerDereferenceExpression(expr);
 		}
 
@@ -458,8 +518,7 @@ namespace CEvol.Analysis
 
 		public Expression SetRefQualifier(Expression expr)
 		{
-			expr.DoNotAutoDereferenceIfPointer = true;
-			return expr;
+			return new DoNotAutoDereferenceIfPointerExpression(expr);
 		}
 
 		private TypeDesc TypeNameToTypeDesc(string typeName)
