@@ -2,7 +2,7 @@
   "profiles": {
     "CEvol": {
       "commandName": "Project",
-      "commandLineArgs": "\"D:/Projects/csharp/CEvol/CEvol/bin/x64/Debug/net10.0/test.cev\""
+      "commandLineArgs": "--input \"D:/Projects/csharp/CEvol/CEvol/bin/x64/Debug/net10.0/test2.cev\" --output my_program.exe"
     }
   }
 }

@@ -27,10 +27,13 @@ namespace CEvol.CLI
 			string firstArgument = _args[0];
 			selectedExecutor = _allCommandExecutors.FirstOrDefault(x => x.Name == firstArgument);
 
-			if (selectedExecutor == null)
+			if(selectedExecutor == null)
+			{
 				selectedExecutor = _allCommandExecutors.FirstOrDefault(x => x.IsDefault);
+				if (selectedExecutor == null) return "noExecutor";
 
-			if (selectedExecutor == null) return "noExecutor";
+				return selectedExecutor.Execute(_args);
+			}
 
 			return selectedExecutor.Execute(_args.Take(new Range(1, _args.Length - 1)));
 		}
