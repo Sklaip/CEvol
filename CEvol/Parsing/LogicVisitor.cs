@@ -7,7 +7,6 @@ using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using System.Numerics;
-using static LLVMSharp.Instruction;
 
 
 namespace CEvol.Parsing
@@ -85,6 +84,32 @@ namespace CEvol.Parsing
 			if (funcName == null) throw new NotImplementedException();
 
 			_semanticAnalyzer.EnterToFunction(funcName, parameters);
+
+			Visit(context.block());
+
+			_semanticAnalyzer.ExitFromBlock();
+			_semanticAnalyzer.CurrentPosition = lastPos;
+
+			return null;
+		}
+
+		public override Expression VisitConstructorDecl([NotNull] CEvolParser.ConstructorDeclContext context)
+		{
+			var lastPos = _semanticAnalyzer.CurrentPosition;
+			SetCurrentPosition(context);
+
+			var prms = context.@params();
+
+			List<(TypeSpec Type, string Name)> parameters = null!;
+
+			if (prms != null)
+			{
+				parameters = ParseParams(prms);
+			}
+
+			if (parameters == null) parameters = [];
+
+			_semanticAnalyzer.EnterToConstructor(parameters);
 
 			Visit(context.block());
 
@@ -259,8 +284,10 @@ namespace CEvol.Parsing
 			string? className = context.IDENTIFIER()?.GetText();
 			if (className == null) throw new NotImplementedException();
 
-			// TODO: пропарсить аргументы
-			var res = _semanticAnalyzer.CallHeapConstructor(className, new Expression[0]);
+			var args = context.args();
+			var arguments = args != null ? ParseArgs(context.args()) : Array.Empty<Expression>();
+
+			var res = _semanticAnalyzer.CallHeapConstructor(className, arguments);
 
 			_semanticAnalyzer.CurrentPosition = lastPos;
 			return res;

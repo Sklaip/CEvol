@@ -29,11 +29,13 @@ fieldDecl : accessModifier? extraModifier* typeSpec IDENTIFIER (ASSIGN expressio
 // Функция/Метод
 functionDecl : accessModifier? extraModifier* typeSpec IDENTIFIER LPAREN params? RPAREN block ;
 abstractFunctionDecl : accessModifier? extraModifier* typeSpec IDENTIFIER LPAREN params? RPAREN SEMICOLON ;
+constructorDecl : accessModifier? extraModifier* CONSTRUCTOR LPAREN params? RPAREN block ;
+desctructorDecl : accessModifier? extraModifier* DESTRUCTOR LPAREN params? RPAREN block ;
 
 params : typeSpec IDENTIFIER (COMMA typeSpec IDENTIFIER)* ;
 
 // --- Инструкции ---
-classDecl : CLASS IDENTIFIER LBRACE (fieldDecl | functionDecl)* RBRACE ;
+classDecl : CLASS IDENTIFIER LBRACE (fieldDecl | functionDecl | abstractFunctionDecl | constructorDecl | desctructorDecl)* RBRACE ;
 
 block : LBRACE statement* RBRACE ;
 

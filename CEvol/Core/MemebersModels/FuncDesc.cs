@@ -6,19 +6,7 @@ using System.Text;
 namespace CEvol.Core.MemebersModels
 {
 	public class FuncDesc
-	{
-		public class Argument
-		{
-			public readonly TypeSpec Declaring;
-			public readonly string Name;
-
-			public Argument(TypeSpec declaring, string name)
-			{
-				Declaring = declaring;
-				Name = name;
-			}
-		}
-
+	{		
 		public readonly TypeSpec ReturnType;
 		public readonly string Name;
 		public readonly Argument[] Arguments;

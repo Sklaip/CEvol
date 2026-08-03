@@ -27,10 +27,10 @@ namespace CEvol.Analysis
 			public Statement CurentStatement;
 			public List<ILogicModel> StatementChilds;
 			public Dictionary<string, Expression> Variables = new();
-			public FunctionStatement? CurrentFunction;
+			public IFunctionalBlockStatement? CurrentFunction;
 			public ClassStatement? CurrentClass;
 
-			public CodeBlock(Statement curentStatement, List<ILogicModel> statementChilds, Dictionary<string, Expression> variables, FunctionStatement? currentFunction, ClassStatement? currentClass)
+			public CodeBlock(Statement curentStatement, List<ILogicModel> statementChilds, Dictionary<string, Expression> variables, IFunctionalBlockStatement? currentFunction, ClassStatement? currentClass)
 			{
 				CurentStatement = curentStatement;
 				StatementChilds = statementChilds;
@@ -117,6 +117,43 @@ namespace CEvol.Analysis
 			_blocks.Push(new CodeBlock(statement, childs, variables, statement, currentClass));
 		}
 
+		public void EnterToConstructor(List<(TypeSpec Type, string Name)> parameters)
+		{
+			CodeBlock block = _blocks.Peek();
+			var currentClass = block.CurrentClass;
+
+			if (currentClass == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Declaring a constructor outside of a class is not allowed", CurrentPosition);
+				return;
+			}
+
+			ConstructorDesc? ctorDesc = null;
+			var constructors = _membersFinder.FindConstructors(currentClass.TypeDesc);
+
+			ctorDesc = _typeAnalyzer.FindSuitableConstructor(constructors, parameters.Select(x => x.Type));
+
+			if (ctorDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Constructor with specified arguments could not be found", CurrentPosition);
+				return;
+			}
+
+			var childs = new List<ILogicModel>();
+			var statement = new ConstructorStatement(ctorDesc, childs, new TypeSpec(_membersFinder.FindType("void")));
+
+			block.StatementChilds.Add(statement);
+
+			var variables = new Dictionary<string, Expression>();
+
+			foreach (var param in parameters)
+			{
+				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type);
+			}
+
+			_blocks.Push(new CodeBlock(statement, childs, variables, statement, currentClass));
+		}
+
 		public void EnterToIfBlock(Expression condition)
 		{
 			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
@@ -162,10 +199,10 @@ namespace CEvol.Analysis
 			var block = _blocks.Pop();
 			Statement statement = block.CurentStatement;
 
-			if (statement is FunctionStatement fnStatement)
+			if (statement is IFunctionalBlockStatement fnStatement)
 			{
 				var voidType = _membersFinder.FindType("void");
-				if (fnStatement.FunctionSignature.ReturnType.Type == voidType)
+				if (fnStatement.ReturnType.Type == voidType)
 				{
 					block.StatementChilds.Add(new ReturnStatement(new SimpleTypeExpression(new TypeSpec(voidType))));
 				}
@@ -187,7 +224,7 @@ namespace CEvol.Analysis
 
 			returnResult = AutoDereferenceIfPointer(returnResult);
 
-			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.FunctionSignature.ReturnType.Type, returnResult.ResultTypeSpec.Type))
+			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.ReturnType.Type, returnResult.ResultTypeSpec.Type))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Invalid return type", CurrentPosition);
 				return;
@@ -253,7 +290,20 @@ namespace CEvol.Analysis
 		public Expression CallHeapConstructor(string typeName, Expression[] arguments)
 		{
 			var typeDesc = _membersFinder.FindType(typeName);
-			return new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]));
+
+			ConstructorDesc? ctorDesc = null;
+			var constructors = _membersFinder.FindConstructors(typeDesc);
+
+			ctorDesc = _typeAnalyzer.FindSuitableConstructor(constructors, arguments.Select(x => x.ResultTypeSpec));
+
+			if (ctorDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Constructor with specified arguments could not be found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			var memory = new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]));
+			return new CallConstructorExpression(memory, ctorDesc, arguments);
 		}
 
 		//public Expression CallStackConstructor(string typeName, Expression[] arguments)
@@ -435,6 +485,8 @@ namespace CEvol.Analysis
 		public Expression VariableAssing(Expression varExpr, Expression expr, Qualifier? assignQualifier)
 		{
 			//if (varAccess is not VariableAccessExpression varExpr) throw new NotImplementedException();
+
+			if (varExpr is StubForErrorExpression || expr is StubForErrorExpression) return new StubForErrorExpression();
 
 			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type)) throw new NotImplementedException();
 

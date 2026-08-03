@@ -53,5 +53,10 @@ namespace CEvol.Core
 
 			return functions;
 		}
+
+		public IReadOnlyCollection<ConstructorDesc> FindConstructors(TypeDesc parentType)
+		{
+			return parentType.Constructors;
+		}
 	}
 }

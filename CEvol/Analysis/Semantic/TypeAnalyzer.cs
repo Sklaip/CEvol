@@ -67,6 +67,18 @@ namespace CEvol.Analysis.Semantic
 			return null;
 		}
 
+		public ConstructorDesc? FindSuitableConstructor(IEnumerable<ConstructorDesc> constructors, IEnumerable<TypeSpec> arguments)
+		{
+			foreach (var ctor in constructors)
+			{
+				var funcArgs = ctor.Arguments.Select(x => x.Declaring);
+				if (funcArgs.SequenceEqual(arguments, new VarDeclaringComparer(this)))
+					return ctor;
+			}
+
+			return null;
+		}
+
 		private bool Is(TypeDesc to, TypeDesc from)
 		{
 			if (to == from) return true;

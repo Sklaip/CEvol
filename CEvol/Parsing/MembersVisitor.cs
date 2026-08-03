@@ -13,12 +13,14 @@ namespace CEvol.Parsing
 
 		private Dictionary<string, VariableSignature>? _currentClassVariables = null;
 		private Dictionary<string, List<FuncSignature>>? _currentClassFunctions = null;
+		private List<ConstructorSignature>? _currentClassConstructors = null;
 		private Dictionary<string, List<FuncSignature>> _singleFunctions = new();
 
 		private record TypeDeclaring(string TypeName, string[] Qualifiers, string[] Modifiers);
 		private record FuncSignature(string Name, TypeDeclaring ReturnType, List<(TypeDeclaring Type, string Name)>? Arguments, string[] modifiers);
+		private record ConstructorSignature(List<(TypeDeclaring Type, string Name)>? Arguments, string[] modifiers);
 		private record VariableSignature(string Name, TypeDeclaring Type);
-		private record ClassSignature(string Name, Dictionary<string, List<FuncSignature>> Functions, Dictionary<string, VariableSignature> Fields);
+		private record ClassSignature(string Name, List<ConstructorSignature> Ctors, Dictionary<string, List<FuncSignature>> Functions, Dictionary<string, VariableSignature> Fields);
 
 		public override object? VisitNamespaceDecl([NotNull] CEvolParser.NamespaceDeclContext context)
 		{
@@ -33,6 +35,7 @@ namespace CEvol.Parsing
 		{
 			_currentClassVariables = new();
 			_currentClassFunctions = new();
+			_currentClassConstructors = new();
 
 			var typeName = context.IDENTIFIER().ToString();
 			var fullTypeName = $"{CurrentNameSpace}.{typeName}";
@@ -49,11 +52,17 @@ namespace CEvol.Parsing
 				Visit(funcDecl);
 			}
 
-			var currentClassDesc = new ClassSignature(fullTypeName, _currentClassFunctions, _currentClassVariables);
+			foreach (var funcDecl in context.constructorDecl())
+			{
+				Visit(funcDecl);
+			}
+
+			var currentClassDesc = new ClassSignature(fullTypeName, _currentClassConstructors, _currentClassFunctions, _currentClassVariables);
 			_classes[fullTypeName] = currentClassDesc;
 
 			_currentClassVariables = null;
 			_currentClassFunctions = null;
+			_currentClassConstructors = null;
 
 			return null;
 		}
@@ -132,7 +141,23 @@ namespace CEvol.Parsing
 			return null;
 		}
 
+		public override object VisitConstructorDecl([NotNull] CEvolParser.ConstructorDeclContext context)
+		{
+			var prms = context.@params();
 
+			List<(TypeDeclaring Type, string Name)>? parameters = null;
+
+			if (prms != null)
+			{
+				parameters = ParseParams(prms);
+			}
+
+			if (_currentClassConstructors == null) throw new NotImplementedException();
+
+			_currentClassConstructors.Add(new ConstructorSignature(parameters, []));
+
+			return null;
+		}
 		private List<(TypeDeclaring Type, string Name)> ParseParams([NotNull] CEvolParser.ParamsContext context)
 		{
 			var parameters = new List<(TypeDeclaring Type, string Name)>();
@@ -186,6 +211,36 @@ namespace CEvol.Parsing
 			return type;
 		}
 
+		private void ConstructorsAnalyze(List<ConstructorSignature> constructorsList,
+			Dictionary<string, TypeDesc> typesList, CodeGenerator codeGenerator, TypeDesc currentClass)
+		{
+			foreach (var ctor in constructorsList)
+			{
+				var arguments = new List<Argument>();
+				var agrumentsRefs = new List<TypeRef>();
+
+				string funcName = $"{currentClass.Name}_ctor";
+				agrumentsRefs.Add(codeGenerator.PointerType);
+
+				if (ctor.Arguments != null)
+				{
+					foreach ((TypeDeclaring Type, string Name) funcArgument in ctor.Arguments)
+					{
+						TypeDesc argumentType = FindTypeForDeclaring(typesList, funcArgument.Type);
+						var declaring = new TypeSpec(argumentType, Qualifier.FromString(funcArgument.Type.Qualifiers));
+						arguments.Add(new Argument(declaring, funcArgument.Name));
+						agrumentsRefs.Add(declaring.QualifiersExists ? codeGenerator.PointerType : argumentType.TypeRef);
+					}
+				}
+
+				FuncRefData funcRefs;
+				bool infArgs = ctor.modifiers.Contains("infargs"); // TODO: енумом модификаторы сделать что ли, или флагами
+				funcRefs = codeGenerator.CreateFunctionSiganture(funcName, typesList["void"].TypeRef, agrumentsRefs, infArgs);
+
+				currentClass.Constructors.Add(new ConstructorDesc(arguments.ToArray(), funcRefs));
+			}
+		}
+
 		private void FunctionsAnalyze(Dictionary<string, List<FuncSignature>> rawFunctionsList,
 			Dictionary<string, TypeDesc> typesList, Dictionary<string, FuncDesc[]> listToAdd, CodeGenerator codeGenerator, TypeDesc? currentClass = null)
 		{
@@ -198,13 +253,13 @@ namespace CEvol.Parsing
 					TypeDesc returnType = FindTypeForDeclaring(typesList, func.ReturnType);
 					var returnTypeQualifers = Qualifier.FromString(func.ReturnType.Qualifiers);
 
-					var arguments = new List<FuncDesc.Argument>();
+					var arguments = new List<Argument>();
 					var agrumentsRefs = new List<TypeRef>();
 
 					string funcName;
 					if (currentClass != null)
 					{
-						funcName = $"{currentClass.Name}_{func.Name}";
+						funcName = $"{currentClass.Name}_{func.Name}"; // TODO: если неколько функций с одним именем, то это в названии надо учитывать
 						agrumentsRefs.Add(codeGenerator.PointerType);
 					}
 					else
@@ -218,7 +273,7 @@ namespace CEvol.Parsing
 						{
 							TypeDesc argumentType = FindTypeForDeclaring(typesList, funcArgument.Type);
 							var declaring = new TypeSpec(argumentType, Qualifier.FromString(funcArgument.Type.Qualifiers));
-							arguments.Add(new FuncDesc.Argument(declaring, funcArgument.Name));
+							arguments.Add(new Argument(declaring, funcArgument.Name));
 							agrumentsRefs.Add(declaring.QualifiersExists ? codeGenerator.PointerType : argumentType.TypeRef);
 						}
 					}
@@ -256,7 +311,7 @@ namespace CEvol.Parsing
 
 				var classStructure = codeGenerator.CreateStructure(currentClass.Name);
 
-				var classDesc = new TypeDesc(currentClass.Name, classStructure, [], []);
+				var classDesc = new TypeDesc(currentClass.Name, classStructure, [], [], []);
 				currentClasses.Add(currentClass.Name, classDesc);
 			}
 
@@ -289,6 +344,7 @@ namespace CEvol.Parsing
 				codeGenerator.FillStructureBody(currentClassTypeDesc.TypeRef, filedTypes);
 
 				FunctionsAnalyze(currentClass.Functions, currentClasses, currentClassTypeDesc.Functions, codeGenerator, currentClassTypeDesc);
+				ConstructorsAnalyze(currentClass.Ctors, currentClasses, codeGenerator, currentClassTypeDesc);
 			}
 
 			return currentClasses;

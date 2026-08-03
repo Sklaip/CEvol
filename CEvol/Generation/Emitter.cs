@@ -41,7 +41,10 @@ namespace CEvol.Generation
 					HandleClass(classStatement);
 					break;
 				case FunctionStatement functionStatement:
-					HandleFunction(functionStatement);
+					HandleFunctionalBlock(functionStatement);
+					break;
+				case ConstructorStatement contructorStatetment:
+					HandleFunctionalBlock(contructorStatetment);
 					break;
 				case IfStatement ifStatement:
 					HandleIfStatement(ifStatement);
@@ -68,17 +71,17 @@ namespace CEvol.Generation
 			_currentClass = null;
 		}
 
-		private void HandleFunction(FunctionStatement statement)
+		private void HandleFunctionalBlock<TBlock>(TBlock statement) where TBlock : Statement, IFunctionalBlockStatement
 		{
 			_functionLocalVariables = new();
 
 			var argumentsTypes = new List<TypeRef>();
 			if (_currentClass != null) argumentsTypes.Add(_codeGenerator.PointerType);
-			argumentsTypes.AddRange(statement.FunctionSignature.Arguments.Select(x => GetActualTypeRef(x.Declaring)));
+			argumentsTypes.AddRange(statement.Arguments.Select(x => GetActualTypeRef(x.Declaring)));
 
-			FuncRefData refData = statement.FunctionSignature.RefData;
-			string name = statement.FunctionSignature.Name;
-			TypeRef returnType = GetActualTypeRef(statement.FunctionSignature.ReturnType);
+			FuncRefData refData = statement.RefData;
+			string name = statement.Name;
+			TypeRef returnType = GetActualTypeRef(statement.ReturnType);
 
 			var funcData = _codeGenerator.StartFunctionBodyFill(refData, name, returnType, argumentsTypes);
 
@@ -89,7 +92,7 @@ namespace CEvol.Generation
 				for (int i = 1; i < funcData.Arguments.Length; i++)
 				{
 					IValueAccessor? accessor = funcData.Arguments[i];
-					var arg = statement.FunctionSignature.Arguments[i - 1];
+					var arg = statement.Arguments[i - 1];
 					_functionLocalVariables.Add(arg.Name, accessor);
 				}
 			}
@@ -98,7 +101,7 @@ namespace CEvol.Generation
 				for (int i = 0; i < funcData.Arguments.Length; i++)
 				{
 					IValueAccessor? accessor = funcData.Arguments[i];
-					var arg = statement.FunctionSignature.Arguments[i];
+					var arg = statement.Arguments[i];
 					_functionLocalVariables.Add(arg.Name, accessor);
 				}
 			}
@@ -192,6 +195,8 @@ namespace CEvol.Generation
 					return StructureFiledAccess(structureFieldAccess);
 				case DoNotAutoDereferenceIfPointerExpression doNotAutoDereferenceIfPointerExpression:
 					return HandleExpression(doNotAutoDereferenceIfPointerExpression.Expression);
+				case CallConstructorExpression callConstructorExpression:
+					return CallConstructor(callConstructorExpression);
 				default:
 					throw new NotImplementedException();
 			}
@@ -321,6 +326,16 @@ namespace CEvol.Generation
 			{
 				return _codeGenerator.GetStackStructureField(instanceGetting, structureType, typeRef, expr.FiledNum);
 			}
+		}
+
+		private IValueAccessor CallConstructor(CallConstructorExpression expr)
+		{
+			var memoryGetting = HandleExpression(expr.MemoryGetting);
+
+			IValueAccessor[] accessors = [memoryGetting, ..expr.Arguments.Select(HandleExpression)];
+			_codeGenerator.FunctionCall(expr.Constructor.RefData, accessors);
+
+			return memoryGetting;
 		}
 
 		private TypeRef GetActualTypeRef(TypeSpec varDeclaring)

@@ -1,0 +1,28 @@
+﻿using CEvol.Core.MemebersModels;
+using CEvol.Generation;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CEvol.Core.LogicModels.Statements
+{
+	public class ConstructorStatement : Statement, IFunctionalBlockStatement
+	{
+		public readonly ConstructorDesc ConstuctorSignature;
+		private readonly TypeSpec _voidType;
+
+		public ConstructorStatement(ConstructorDesc constructorSignature, IReadOnlyCollection<ILogicModel> childs, TypeSpec voidType) : base(childs)
+		{
+			ConstuctorSignature = constructorSignature;
+			_voidType = voidType;
+		}
+
+		public TypeSpec ReturnType => _voidType;
+
+		public Argument[] Arguments => ConstuctorSignature.Arguments;
+
+		public FuncRefData RefData => ConstuctorSignature.RefData;
+
+		public string Name => "ctor";
+	}
+}

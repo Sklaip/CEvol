@@ -63,9 +63,9 @@ namespace CEvol.Core
 				Console.WriteLine("================ ИСХОДНЫЙ IR ================");
 				module.Dump();
 
-				Optimize(module);
-
 				codeGenerator.VerifyModule();
+
+				Optimize(module);
 
 				Compile(module);
 			}
