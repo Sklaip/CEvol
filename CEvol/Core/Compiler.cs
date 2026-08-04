@@ -5,8 +5,6 @@ using CEvol.Core.MemebersModels;
 using CEvol.Generation;
 using CEvol.Parsing;
 using LLVMSharp.Interop;
-using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -14,9 +12,17 @@ namespace CEvol.Core
 {
 	internal class Compiler
 	{
-		public void Execute(string inputFile, string outputFile)
+		// Служебная структура для хранения спарсенного AST файла
+		private class FileUnit
 		{
-			// 1. Инициализируем подсистемы LLVM В САМОМ НАЧАЛЕ
+			public string FilePath { get; set; } = string.Empty;
+			public string Content { get; set; } = string.Empty;
+			public IParseTree Tree { get; set; } = null!;
+			public MembersVisitor MembersVisitor { get; set; } = null!;
+		}
+
+		public void Execute(List<string> inputFiles, string outputFile)
+		{
 			LLVM.InitializeNativeTarget();
 			LLVM.InitializeNativeAsmPrinter();
 			LLVM.InitializeNativeAsmParser();
@@ -26,39 +32,85 @@ namespace CEvol.Core
 			LLVM.InitializeAllTargetMCs();
 			LLVM.InitializeAllAsmPrinters();
 
-			var fileContent = File.ReadAllText(inputFile);
+			// 1. Чтение исходного кода и построение синтаксических деревьев
+			var sourcesMap = new Dictionary<string, string>();
+			var units = new List<FileUnit>();
 
-			ICharStream stream = CharStreams.fromString(fileContent);
-			var lexer = new CEvolLexer(stream);
-			ITokenStream tokenStream = new CommonTokenStream(lexer);
-			var parser = new CEvolParser(tokenStream);
-
-			IParseTree tree = parser.program();
-
-			var analyzer = new MembersVisitor();
-			analyzer.Visit(tree);
-
-			var codeGenerator = new CodeGenerator(analyzer.CurrentNameSpace);
-			var table = analyzer.Build(BuildBaseMembersList(codeGenerator), codeGenerator);
-
-			var finder = new MembersFinder(table);
-			finder.AddNamespace(analyzer.CurrentNameSpace);
-
-			var errorsBag = new ErrorsBag(new Dictionary<string, string>()
+			foreach (var filePath in inputFiles)
 			{
-				[inputFile] = fileContent
-			});
+				var fileContent = File.ReadAllText(filePath);
+				sourcesMap[filePath] = fileContent;
 
-			var test = new LogicVisitor(finder, errorsBag, inputFile);
-			test.Visit(tree);
-			var statement = test.ResultStatement;
+				ICharStream stream = CharStreams.fromString(fileContent);
+				var lexer = new CEvolLexer(stream);
+				ITokenStream tokenStream = new CommonTokenStream(lexer);
+				var parser = new CEvolParser(tokenStream);
 
+				IParseTree tree = parser.program();
+
+				units.Add(new FileUnit
+				{
+					FilePath = filePath,
+					Content = fileContent,
+					Tree = tree
+				});
+			}
+
+			// 2. Инициализация модуля кодогенерации
+			// Валидация имени модуля из аргументов компиляции (outputFile)
+			string moduleName = Path.GetFileNameWithoutExtension(outputFile);
+			if (string.IsNullOrWhiteSpace(moduleName))
+			{
+				moduleName = "main_module";
+			}
+
+			var codeGenerator = new CodeGenerator(moduleName);
+			var baseMemebersList = BuildBaseMembersList(codeGenerator);
+			MembersTable globalMembersTable = new MembersTable();
+
+			// 3. Первый проход: Один MembersVisitor на один файл исходного кода
+			foreach (var unit in units)
+			{
+				unit.MembersVisitor = new MembersVisitor();
+				unit.MembersVisitor.Visit(unit.Tree);
+
+				// Объединяем полученные типы и функции в общую таблицу
+				MembersTable fileTable = unit.MembersVisitor.Build(baseMemebersList, codeGenerator);
+				globalMembersTable.Merge(fileTable);
+			}
+
+			// 4. MembersFinder содержит в себе все классы и пространства имен со всех файлов
+			var finder = new MembersFinder(globalMembersTable);
+			foreach (var unit in units)
+			{
+				if (!string.IsNullOrEmpty(unit.MembersVisitor.CurrentNameSpace))
+				{
+					finder.AddNamespace(unit.MembersVisitor.CurrentNameSpace);
+				}
+			}
+
+			// 5. Единый ErrorsBag, содержащий в себе исходники всех файлов
+			var errorsBag = new ErrorsBag(sourcesMap);
+
+			// 6. Второй проход: Один LogicVisitor на один файл исходного кода
+			var program = new ProgramStatement(); // Корневой агрегатор всех AST элементов
+
+			foreach (var unit in units)
+			{
+				var logicVisitor = new LogicVisitor(finder, errorsBag, unit.FilePath);
+				logicVisitor.Visit(unit.Tree);
+				var statement = logicVisitor.ResultStatement;
+
+				program.AddStatement(statement);
+			}
+
+			// 7. Проверка ошибок и генерация кода
 			if (!errorsBag.HasErrors)
 			{
-				var emmitter = new Emitter(codeGenerator);
-				emmitter.Build((NamespaceStatement)statement);
+				var emitter = new Emitter(codeGenerator);
+				emitter.Build(program);
 
-				var module = emmitter.CodeGenerator.GetModule();
+				var module = emitter.CodeGenerator.GetModule();
 
 				Console.WriteLine("================ ИСХОДНЫЙ IR ================");
 				module.Dump();
@@ -67,14 +119,13 @@ namespace CEvol.Core
 
 				Optimize(module);
 
-				Compile(module);
+				Compile(module, outputFile);
 			}
 			else
 			{
 				Console.WriteLine(errorsBag.BuildErrorsMessage());
 			}
 		}
-
 
 		private MembersTable BuildBaseMembersList(CodeGenerator codeGenerator)
 		{
@@ -88,12 +139,6 @@ namespace CEvol.Core
 			types["ushort"] = new TypeDesc("ushort", codeGenerator.GetType(BaseTypes.Short));
 			types["uint"] = new TypeDesc("uint", codeGenerator.GetType(BaseTypes.Int));
 
-
-			//types["ref"] = new TypeDesc("ref", codeGenerator.GetType(BaseTypes.Pointer), new CascadingTypeBehavior(CascadingTypeBehavior.Dereference.Auto));
-			//types["sharedRef"] = new TypeDesc("sharedRef", codeGenerator.GetType(BaseTypes.Pointer), new CascadingTypeBehavior(CascadingTypeBehavior.Dereference.Auto));
-			//types["borrowerRef"] = new TypeDesc("borrowerRef", codeGenerator.GetType(BaseTypes.Pointer), new CascadingTypeBehavior(CascadingTypeBehavior.Dereference.Auto));
-			//types["array"] = new TypeDesc("array", codeGenerator.GetType(BaseTypes.Pointer), new CascadingTypeBehavior(CascadingTypeBehavior.Dereference.RequiresClarification));
-
 			types["short"].InheritedTypes.Add(types["int"]);
 			types["sbyte"].InheritedTypes.Add(types["short"]);
 
@@ -105,11 +150,9 @@ namespace CEvol.Core
 
 		private unsafe void Optimize(LLVMModuleRef module)
 		{
-			// Создаем TargetMachine
 			var triple = LLVMTargetRef.DefaultTriple;
 			var target = LLVMTargetRef.GetTargetFromTriple(triple);
 
-			// Внимание: CreateTargetMachine возвращает LLVMTargetMachineRef struct
 			var targetMachine = target.CreateTargetMachine(
 				triple,
 				"generic",
@@ -119,26 +162,21 @@ namespace CEvol.Core
 				LLVMCodeModel.LLVMCodeModelDefault
 			);
 
-			// Создаем опции пасс-билдера
 			LLVMOpaquePassBuilderOptions* passOptions = LLVM.CreatePassBuilderOptions();
-
-			// Подготавливаем строку с пайплайном в формате C-string (sbyte*)
-			byte[] passesBytes = Encoding.UTF8.GetBytes("default<O2>\0"); // обязательно null-terminated
+			byte[] passesBytes = Encoding.UTF8.GetBytes("default<O2>\0");
 
 			LLVMOpaqueError* error = null;
 
 			fixed (byte* pPasses = passesBytes)
 			{
-				// Вызываем RunPasses с приведением типов к сырым указателям (*):
 				error = LLVM.RunPasses(
-					(LLVMOpaqueModule*)module.Handle,               // module -> LLVMOpaqueModule*
-					(sbyte*)pPasses,                                // string -> sbyte*
-					(LLVMOpaqueTargetMachine*)targetMachine.Handle, // targetMachine -> LLVMOpaqueTargetMachine*
-					passOptions                                     // options
+					(LLVMOpaqueModule*)module.Handle,
+					(sbyte*)pPasses,
+					(LLVMOpaqueTargetMachine*)targetMachine.Handle,
+					passOptions
 				);
 			}
 
-			// Проверяем на ошибки
 			if (error != null)
 			{
 				sbyte* errMsg = LLVM.GetErrorMessage(error);
@@ -153,19 +191,14 @@ namespace CEvol.Core
 				Console.WriteLine(optimizedIR);
 			}
 
-			// Освобождать нужно ВСЕГДА после завершения
 			LLVM.DisposePassBuilderOptions(passOptions);
-			//targetMachine.Dispose();
 		}
 
-		private void Compile(LLVMModuleRef module)
+		private void Compile(LLVMModuleRef module, string targetExePath)
 		{
-			// 2. Получаем целевую платформу по умолчанию (Target Triple)
-			// Например: "x86_64-pc-windows-msvc" или "x86_64-unknown-linux-gnu"
 			string triple = LLVMTargetRef.DefaultTriple;
 			var target = LLVMTargetRef.GetTargetFromTriple(triple);
 
-			// 3. Создаем Target Machine (настройки компиляции под конкретный процессор)
 			var targetMachine = target.CreateTargetMachine(
 				triple,
 				cpu: "generic",
@@ -175,10 +208,8 @@ namespace CEvol.Core
 				LLVMCodeModel.LLVMCodeModelDefault
 			);
 
-			// Устанавливаем triple для модуля, чтобы он соответствовал машине
 			module.Target = triple;
 
-			// 4. Генерируем объектный файл (.obj или .o)
 			string objFileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "output.obj" : "output.o";
 
 			if (targetMachine.TryEmitToFile(module, objFileName, LLVMCodeGenFileType.LLVMObjectFile, out string errorMessage))
@@ -191,10 +222,7 @@ namespace CEvol.Core
 				return;
 			}
 
-			Console.WriteLine("");
-			Console.WriteLine();
-
-			LinkExecutable(objFileName, "my_program.exe");
+			LinkExecutable(objFileName, targetExePath);
 		}
 
 		private void LinkExecutable(string objFile, string exeFile)
@@ -223,7 +251,7 @@ namespace CEvol.Core
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Пиздец: {ex.Message}");
+				Console.WriteLine($"Ошибка запуска линковщика: {ex.Message}");
 			}
 		}
 	}

@@ -70,12 +70,12 @@ expression
     | NEW IDENTIFIER arraySizeSpec+ arraySpec*   # NewArrayExpr
     | NEW IDENTIFIER LPAREN args? RPAREN         # NewExpr
 
-    | LOC expression                             # LocExpr
-    | REF expression                             # RefExpr
-
     | IDENTIFIER LPAREN args? RPAREN             # CallExpr
     | expression LBRACK args RBRACK              # IndexExpr
     | expression DOT IDENTIFIER ( LPAREN args? RPAREN )? # MemberAccess
+
+    | LOC expression                             # LocExpr
+    | REF expression                             # RefExpr
 
     | expression (MUL | DIV) expression          # MulDivExpr
     | expression (PLUS | MINUS) expression       # AddSubExpr

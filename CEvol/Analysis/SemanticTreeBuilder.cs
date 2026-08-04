@@ -1,4 +1,5 @@
-﻿using CEvol.Analysis.Semantic;
+﻿using Antlr4.Runtime.Misc;
+using CEvol.Analysis.Semantic;
 using CEvol.Core;
 using CEvol.Core.LogicModels;
 using CEvol.Core.LogicModels.Expressions;
@@ -224,18 +225,20 @@ namespace CEvol.Analysis
 
 			returnResult = AutoDereferenceIfPointer(returnResult);
 
-			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.ReturnType.Type, returnResult.ResultTypeSpec.Type))
+			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.ReturnType.Type, returnResult.ResultTypeSpec.Type)
+				|| !currentFunction.ReturnType.QualifiersEquals(returnResult.ResultTypeSpec))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Invalid return type", CurrentPosition);
 				return;
 			}
-			// TODO: так же проверить AdditionalTypes
 
 			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult));
 		}
 
 		public Expression CallFunction(string name, Expression[] args)
 		{
+			if (CheckStubForError(args)) return new StubForErrorExpression();
+
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
 			var functions = _membersFinder.FindFunction(name);
@@ -258,6 +261,8 @@ namespace CEvol.Analysis
 
 		public Expression CallClassMethod(string name, Expression instanceGetting, Expression[] args)
 		{
+			if (CheckStubForError(args) || CheckStubForError(instanceGetting)) return new StubForErrorExpression();
+
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
 			// TODO: проверить instanceGetting на валидность
@@ -486,7 +491,7 @@ namespace CEvol.Analysis
 		{
 			//if (varAccess is not VariableAccessExpression varExpr) throw new NotImplementedException();
 
-			if (varExpr is StubForErrorExpression || expr is StubForErrorExpression) return new StubForErrorExpression();
+			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression();
 
 			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type)) throw new NotImplementedException();
 
@@ -531,13 +536,15 @@ namespace CEvol.Analysis
 
 		private Expression GetAccessorOfRequiredType(Expression expr, TypeSpec exprDeclaring, TypeSpec valueForOrientation)
 		{
+			if (CheckStubForError(expr)) return new StubForErrorExpression();
+
 			if (exprDeclaring.QualifiersExists || !exprDeclaring.Type.IsBaseType) return expr;
 
 			//проверяем что exprDeclaring имеет числовой тип
 			var intType = _membersFinder.FindType("int");
 			if (_typeAnalyzer.StrictCheckTypeMatching(intType, exprDeclaring.Type))
 			{
-				if (exprDeclaring.Type == intType) return expr;
+				if (exprDeclaring.Type == intType) return expr; // если не просто наследник int'а, а сам int, то возвращаем как есть
 				return new NumTruncExpression(expr, valueForOrientation);
 			}
 
@@ -546,6 +553,8 @@ namespace CEvol.Analysis
 
 		public Expression AutoDereferenceIfPointer(Expression expr)
 		{
+			if (CheckStubForError(expr)) return new StubForErrorExpression();
+
 			if (!expr.ResultTypeSpec.IsRef || expr is GetPointerToVarExpression || expr is DoNotAutoDereferenceIfPointerExpression) return expr;
 			return new PointerDereferenceExpression(expr);
 		}
@@ -556,8 +565,17 @@ namespace CEvol.Analysis
 			if (!block.Variables.TryGetValue(name, out var value))
 			{
 				var currentClass = block.CurrentClass?.TypeDesc;
-				if (currentClass == null) throw new NotImplementedException();
-				if (!currentClass.Variables.TryGetValue(name, out var field)) throw new NotImplementedException();
+				if (currentClass == null)
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "No variable with that name was found", CurrentPosition);
+					return new StubForErrorExpression();
+				}
+
+				if (!currentClass.Variables.TryGetValue(name, out var field))
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "No variable or field with that name was found", CurrentPosition);
+					return new StubForErrorExpression();
+				}
 
 				TypeSpec fieldDeclaring = field.Declaring;
 
@@ -570,12 +588,18 @@ namespace CEvol.Analysis
 
 		public Expression SetRefQualifier(Expression expr)
 		{
+			if (CheckStubForError(expr)) return new StubForErrorExpression();
 			return new DoNotAutoDereferenceIfPointerExpression(expr);
 		}
 
 		private TypeDesc TypeNameToTypeDesc(string typeName)
 		{
 			return _membersFinder.FindType(typeName);
+		}
+
+		private bool CheckStubForError(params Expression[] expressions)
+		{
+			return expressions.Any(x => x is StubForErrorExpression);
 		}
 
 	}

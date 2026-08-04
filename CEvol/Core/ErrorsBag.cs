@@ -41,11 +41,9 @@ namespace CEvol.Core
 			if (_errors.Count == 0)
 				return string.Empty;
 
-			// Кешируем строки файлов для быстрого доступа по номеру строки
 			var parsedSources = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 			foreach (var (fileName, content) in _sources)
 			{
-				// Поддержка всех вариантов переноса строк (CRLF, LF)
 				parsedSources[fileName] = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 			}
 
@@ -55,33 +53,37 @@ namespace CEvol.Core
 			{
 				var err = _errors[i];
 
-				// 1. Заголовок ошибки: [ИмяФайла](Строка, Символ): error [КодОшибки] [Слой]: Комментарий
 				builder.AppendLine($"[{err.Pos.SourceFile}]({err.Pos.Line},{err.Pos.Symbol}): error {err.ErrorCode} [{err.Layer}]: {err.Comment}");
 
-				// Проверяем наличие исходного файла и корректность номера строки
 				if (parsedSources.TryGetValue(err.Pos.SourceFile, out var lines) &&
 					err.Pos.Line > 0 && err.Pos.Line <= lines.Length)
 				{
 					string sourceLine = lines[err.Pos.Line - 1];
 
-					// Подготавливаем строку: заменяем табуляцию на 4 пробела, чтобы указатель '^' не съезжал
-					string printableLine = sourceLine.Replace("\t", "    ");
+					// Определяем количество начальных пробелов/табуляций
+					int leadingWhitespaceCount = 0;
+					while (leadingWhitespaceCount < sourceLine.Length && char.IsWhiteSpace(sourceLine[leadingWhitespaceCount]))
+					{
+						leadingWhitespaceCount++;
+					}
 
-					// Форматируем номер строки с выравниванием
+					// Обрезаем начальные отступы
+					string trimmedSourceLine = sourceLine.Substring(leadingWhitespaceCount);
+					string printableLine = trimmedSourceLine.Replace("\t", "    ");
+
 					string lineNumStr = err.Pos.Line.ToString();
 					string margin = new string(' ', lineNumStr.Length);
 
 					builder.AppendLine($"{margin} |");
 					builder.AppendLine($"{lineNumStr} | {printableLine}");
 
-					// Рассчитываем смещение указателя '^' с учетом замененных знаков табуляции
-					int pointerOffset = CalculatePointerOffset(sourceLine, err.Pos.Symbol);
+					// Рассчитываем смещение с автокоррекцией позиции до ближайшего видимого символа
+					int pointerOffset = CalculatePointerOffset(sourceLine, leadingWhitespaceCount, err.Pos.Symbol);
 					string pointerPadding = new string(' ', pointerOffset);
 
 					builder.AppendLine($"{margin} | {pointerPadding}^");
 				}
 
-				// Разделитель между ошибками
 				if (i < _errors.Count - 1)
 				{
 					builder.AppendLine();
@@ -92,24 +94,45 @@ namespace CEvol.Core
 		}
 
 		/// <summary>
-		/// Корректно рассчитывает смещение указателя с учетом табуляций в исходной строке.
+		/// Рассчитывает смещение указателя с учетом подрезки строки и пропуска пробелов перед токеном.
 		/// </summary>
-		private static int CalculatePointerOffset(string originalLine, int symbolPosition)
+		private static int CalculatePointerOffset(string originalLine, int leadingWhitespaceCount, int symbolPosition)
 		{
-			int offset = 0;
-			// symbolPosition передается обычно от 1 или 0 (берем безопасный предел)
-			int targetIndex = Math.Min(Math.Max(0, symbolPosition - 1), originalLine.Length);
+			if (string.IsNullOrEmpty(originalLine) || leadingWhitespaceCount >= originalLine.Length)
+				return 0;
 
-			for (int i = 0; i < targetIndex; i++)
+			// Переводим 1-based символ в 0-based индекс
+			int targetIndex = Math.Min(Math.Max(0, symbolPosition - 1), originalLine.Length - 1);
+
+			// Коррекция: Если targetIndex попал на пробел/табуляцию, смещаем его вправо до первого печатного символа
+			while (targetIndex < originalLine.Length && char.IsWhiteSpace(originalLine[targetIndex]))
+			{
+				targetIndex++;
+			}
+
+			// Если вся оставшаяся часть строки состоит из пробелов — ставим указатель в конец подрезанной строки
+			if (targetIndex >= originalLine.Length)
+			{
+				targetIndex = originalLine.Length - 1;
+			}
+
+			// Если токен находится в пределах вырезанного начального отступа — указываем на самый первый символ
+			if (targetIndex <= leadingWhitespaceCount)
+			{
+				return 0;
+			}
+
+			// Считаем визуальную ширину от первого видимого символа до исправленной позиции токена
+			int offset = 0;
+			for (int i = leadingWhitespaceCount; i < targetIndex; i++)
 			{
 				if (originalLine[i] == '\t')
-					offset += 4; // Выравниваем под 4 пробела из printableLine
+					offset += 4; // Учитываем ширину табуляции
 				else
 					offset += 1;
 			}
 
 			return offset;
 		}
-
 	}
 }

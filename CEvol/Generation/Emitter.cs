@@ -24,9 +24,9 @@ namespace CEvol.Generation
 
 		public CodeGenerator CodeGenerator { get => _codeGenerator; }
 
-		public void Build(NamespaceStatement namespaceStatement)
+		public void Build(ProgramStatement program)
 		{
-			foreach (var child in namespaceStatement.Childs)
+			foreach (var child in program.Childs)
 			{
 				if (!(child is Statement stm)) throw new NotImplementedException();
 				HandleStatement(stm);
@@ -37,6 +37,9 @@ namespace CEvol.Generation
 		{
 			switch (statement)
 			{
+				case NamespaceStatement nameSpaceStatement:
+					HandleNameSpace(nameSpaceStatement);
+					break;
 				case ClassStatement classStatement:
 					HandleClass(classStatement);
 					break;
@@ -57,6 +60,15 @@ namespace CEvol.Generation
 					break;
 				default:
 					throw new NotImplementedException();
+			}
+		}
+
+		private void HandleNameSpace(NamespaceStatement statement)
+		{
+			foreach (var child in statement.Childs)
+			{
+				if (!(child is Statement stm)) throw new NotImplementedException();
+				HandleStatement(stm);
 			}
 		}
 

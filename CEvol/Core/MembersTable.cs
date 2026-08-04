@@ -16,6 +16,8 @@ namespace CEvol.Core
 			Types = types;
 		}
 
+		public MembersTable() : this([], []) { }
+
 		public void Merge(MembersTable other)
 		{
 			foreach (var func in other.Functions)

@@ -1,7 +1,8 @@
 ﻿using CEvol.Core;
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.IO;
+using System.Linq;
 
 namespace CEvol.CLI
 {
@@ -11,7 +12,7 @@ namespace CEvol.CLI
 
 		public string Name => "compile";
 
-		private List<string> _inputFiles = new();
+		private readonly List<string> _rawInputPaths = new();
 		private string? _outputFile = null;
 
 		public string Execute(IEnumerable<string> arguments)
@@ -25,16 +26,22 @@ namespace CEvol.CLI
 				}
 				else
 				{
-					if (currentArgumentType == null) throw new NotImplementedException();
+					if (currentArgumentType == null) throw new InvalidOperationException("Аргумент передан без флага.");
 					ExecuteConsumeArgument(currentArgumentType, arg);
 				}
 			}
 
-			if (_inputFiles.Count < 1 || string.IsNullOrWhiteSpace(_outputFile))
-				throw new NotImplementedException();
+			// Разворачиваем маски и путевые паттерны (*.cev и т.д.)
+			var resolvedFiles = ResolveInputFiles(_rawInputPaths);
+
+			if (resolvedFiles.Count < 1)
+				throw new InvalidOperationException("Не найдено ни одного файла для компиляции.");
+
+			if (string.IsNullOrWhiteSpace(_outputFile))
+				_outputFile = "output.exe";
 
 			var compiler = new Compiler();
-			compiler.Execute(_inputFiles[0], _outputFile);
+			compiler.Execute(resolvedFiles, _outputFile);
 
 			return "successfully";
 		}
@@ -49,7 +56,7 @@ namespace CEvol.CLI
 			switch (argumentType)
 			{
 				case "--input":
-					_inputFiles.Add(argument);
+					_rawInputPaths.Add(argument);
 					return true;
 				case "--output":
 					_outputFile = argument;
@@ -57,6 +64,43 @@ namespace CEvol.CLI
 				default:
 					return false;
 			}
+		}
+
+		private List<string> ResolveInputFiles(IEnumerable<string> paths)
+		{
+			var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (var path in paths)
+			{
+				if (path.Contains('*') || path.Contains('?'))
+				{
+					string directory = Path.GetDirectoryName(path);
+					if (string.IsNullOrEmpty(directory))
+					{
+						directory = Directory.GetCurrentDirectory();
+					}
+
+					string searchPattern = Path.GetFileName(path);
+					if (Directory.Exists(directory))
+					{
+						var files = Directory.GetFiles(directory, searchPattern, SearchOption.TopDirectoryOnly);
+						foreach (var f in files)
+						{
+							result.Add(Path.GetFullPath(f));
+						}
+					}
+				}
+				else if (File.Exists(path))
+				{
+					result.Add(Path.GetFullPath(path));
+				}
+				else
+				{
+					Console.WriteLine($"Предупреждение: Файл не найден: {path}");
+				}
+			}
+
+			return result.ToList();
 		}
 	}
 }

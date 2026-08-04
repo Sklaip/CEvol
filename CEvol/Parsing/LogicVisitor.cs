@@ -629,7 +629,7 @@ namespace CEvol.Parsing
 
 		private void SetCurrentPosition(ParserRuleContext context)
 		{
-			_semanticAnalyzer.CurrentPosition = new PositionInSources(_currentFile, context.Start.Line, context.Start.StartIndex);
+			_semanticAnalyzer.CurrentPosition = new PositionInSources(_currentFile, context.Start.Line, context.Start.Column);
 		}
 
 	}
