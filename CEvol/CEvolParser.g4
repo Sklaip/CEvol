@@ -3,9 +3,10 @@ parser grammar CEvolParser;
 options { tokenVocab = CEvolLexer; }
 
 // --- Точка входа ---
-program : namespaceDecl (classDecl | functionDecl | fieldDecl | abstractFunctionDecl)* EOF;
+program : namespaceDecl usingDecl? (classDecl | functionDecl | fieldDecl | abstractFunctionDecl)* EOF;
 
 namespaceDecl : NAMESPACE IDENTIFIER SEMICOLON ;
+usingDecl : USING IDENTIFIER SEMICOLON ;
 
 // --- Модификаторы ---
 // Модификаторы доступа: public, private (опционально)

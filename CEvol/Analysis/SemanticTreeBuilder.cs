@@ -6,6 +6,7 @@ using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using System.Numerics;
+using System.Xml.Linq;
 using static CEvol.Core.MemebersModels.Qualifier;
 
 namespace CEvol.Analysis
@@ -50,10 +51,19 @@ namespace CEvol.Analysis
 
 		public void EnterToNameSpace(string nameSpace)
 		{
+			_membersFinder.AddUsing(nameSpace);
 			var childs = new List<ILogicModel>();
 			var statement = new NamespaceStatement(nameSpace, childs);
 
 			_blocks.Push(new CodeBlock(statement, childs, [], null, null));
+		}
+
+		public void Using(string nameSpace)
+		{
+			if (!_membersFinder.AddUsing(nameSpace))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A namespace was not found", CurrentPosition);
+			}
 		}
 
 		public void EnterToClass(string className)

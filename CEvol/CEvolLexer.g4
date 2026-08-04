@@ -2,11 +2,18 @@ lexer grammar CEvolLexer;
 
 // Ключевые слова
 NAMESPACE: 'namespace';
+USING: 'using';
 CLASS    : 'class';
 IF       : 'if';
 ELSE     : 'else';
 WHILE    : 'while';
 RETURN   : 'return';
+LOC  : 'loc';
+NEW : 'new';
+STACK : 'stack';
+CONSTRUCTOR : 'ctor';
+DESTRUCTOR : 'dtor';
+REF : 'ref';
 
 // Операторы и знаки
 ASSIGN   : '=';
@@ -32,15 +39,6 @@ RBRACK : ']' ;
 SEMICOLON: ';';
 COMMA : ',';
 DOT : '.' ;
-
-// Ключевые слова
-LOC  : 'loc';
-NEW : 'new';
-STACK : 'stack';
-CONSTRUCTOR : 'ctor';
-DESTRUCTOR : 'dtor';
-
-REF : 'ref';
 
 // Модификаторы
 PUBLIC : 'public';

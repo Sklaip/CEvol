@@ -9,6 +9,7 @@ namespace CEvol.Core
 	{
 		private readonly MembersTable _membersTable;
 		private HashSet<string> _namespaces = [];
+		private HashSet<string> _usings = [];
 
 		public MembersFinder(MembersTable membersTable)
 		{
@@ -20,12 +21,25 @@ namespace CEvol.Core
 			_namespaces.Add(nameSpace);
 		}
 
+		public bool AddUsing(string nameSpace)
+		{
+			if (!_namespaces.Contains(nameSpace)) return false;
+			_usings.Add(nameSpace);
+
+			return true;
+		}
+
+		public void ClearUsings()
+		{
+			_usings.Clear();
+		}
+
 		public TypeDesc FindType(string name)
 		{
 			if (_membersTable.Types.TryGetValue(name, out TypeDesc typeDesc))
 				return typeDesc;
 
-			foreach (string nameSpace in _namespaces)
+			foreach (string nameSpace in _usings)
 			{
 				if (_membersTable.Types.TryGetValue($"{nameSpace}.{name}", out typeDesc))
 					return typeDesc;

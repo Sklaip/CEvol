@@ -30,8 +30,11 @@ namespace CEvol.Parsing
 
 		public override Expression? VisitProgram(CEvolParser.ProgramContext context)
 		{
+			_membersFinder.ClearUsings();
+
 			VisitChildren(context);
 			ResultStatement = _semanticAnalyzer.ExitFromBlock();
+
 			return null;
 		}
 
@@ -41,12 +44,28 @@ namespace CEvol.Parsing
 			SetCurrentPosition(context);
 
 			string name = context.IDENTIFIER().GetText();
+			if (name == null) throw new NotImplementedException();
+
 			_semanticAnalyzer.EnterToNameSpace(name);
 
 			VisitChildren(context);
 
 			_semanticAnalyzer.CurrentPosition = lastPos;
 
+			return null;
+		}
+
+		public override Expression? VisitUsingDecl([NotNull] CEvolParser.UsingDeclContext context)
+		{
+			var lastPos = _semanticAnalyzer.CurrentPosition;
+			SetCurrentPosition(context);
+
+			string name = context.IDENTIFIER().GetText();
+			if (name == null) throw new NotImplementedException();
+
+			_semanticAnalyzer.Using(name);
+
+			_semanticAnalyzer.CurrentPosition = lastPos;
 			return null;
 		}
 
