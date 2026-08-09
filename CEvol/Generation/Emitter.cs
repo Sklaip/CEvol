@@ -148,14 +148,14 @@ namespace CEvol.Generation
 		private void HandleReturnStatement(ReturnStatement statement)
 		{
 			Expression resExpr = statement.Value;
-			if(resExpr.ResultTypeSpec.Type.Name != "void")
+			if (resExpr.ResultTypeSpec.Type.Name != "void")
 			{
 				_codeGenerator.AddReturn(HandleExpression(resExpr));
 			}
 			else
 			{
 				_codeGenerator.AddReturn(null);
-			}			
+			}
 		}
 
 		private void HandleWhileStatement(WhileStatement statement)
@@ -199,8 +199,6 @@ namespace CEvol.Generation
 					return GetPointerToVar(getPointerToVar);
 				case NotExpression notExpression:
 					return Not(notExpression);
-				case NumTruncExpression numTrunc:
-					return NumTrunc(numTrunc);
 				case PointerDereferenceExpression pointerDereference:
 					return PointerDereference(pointerDereference);
 				case StructureFieldAccessExpression structureFieldAccess:
@@ -209,6 +207,14 @@ namespace CEvol.Generation
 					return HandleExpression(doNotAutoDereferenceIfPointerExpression.Expression);
 				case CallConstructorExpression callConstructorExpression:
 					return CallConstructor(callConstructorExpression);
+				case GlobalArrayExpression globalArrayExpression:
+					return CreateGlobalArray(globalArrayExpression);
+				case CastExpression castExpression:
+					return CastHandle(castExpression);
+				case IntToIntExtensionExpression intToIntExtensionExpression:
+					return IntToIntExtensionHandle(intToIntExtensionExpression);
+				case IntToFloatExtensionExpression intToFloatExtensionExpression:
+					return IntToFloatExtensionHandle(intToFloatExtensionExpression);
 				default:
 					throw new NotImplementedException();
 			}
@@ -218,7 +224,7 @@ namespace CEvol.Generation
 		private IValueAccessor CreateNum(NumConstExpression expr)
 		{
 			var num = (ulong)(expr.Value & ulong.MaxValue);
-			return _codeGenerator.CreateIntConst(num, BaseTypes.Int);
+			return _codeGenerator.CreateIntConst(num, expr.IntType);
 		}
 
 		private IValueAccessor CreateVar(VariableCreatingExpression expr)
@@ -265,8 +271,8 @@ namespace CEvol.Generation
 
 		private IValueAccessor SimpleBinaryOperationHandle(SimpleBinaryOperationExpression expr)
 		{
-			var left = HandleExpression(expr.LeftExpression);
-			var right = HandleExpression(expr.RightExpression);
+			IValueAccessor left = HandleExpression(expr.LeftExpression);
+			IValueAccessor right = HandleExpression(expr.RightExpression);
 
 			switch (expr.OperationType)
 			{
@@ -314,11 +320,6 @@ namespace CEvol.Generation
 			return _codeGenerator.BitNot(HandleExpression(expr));
 		}
 
-		private IValueAccessor NumTrunc(NumTruncExpression expr)
-		{
-			return _codeGenerator.NumTrunc(HandleExpression(expr.NumGetting), TypeToBaseType(expr.ResultTypeSpec.Type));
-		}
-
 		private IValueAccessor PointerDereference(PointerDereferenceExpression expr)
 		{
 			return _codeGenerator.PointerDereference(HandleExpression(expr.Target), expr.ResultTypeSpec.Type.TypeRef);
@@ -344,10 +345,32 @@ namespace CEvol.Generation
 		{
 			var memoryGetting = HandleExpression(expr.MemoryGetting);
 
-			IValueAccessor[] accessors = [memoryGetting, ..expr.Arguments.Select(HandleExpression)];
+			IValueAccessor[] accessors = [memoryGetting, .. expr.Arguments.Select(HandleExpression)];
 			_codeGenerator.FunctionCall(expr.Constructor.RefData, accessors);
 
 			return memoryGetting;
+		}
+
+		private IValueAccessor CastHandle(CastExpression expr)
+		{
+			return HandleExpression(expr.Expression);
+		}
+
+		private IValueAccessor IntToIntExtensionHandle(IntToIntExtensionExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.IntToIntExtension(accessor, expr.IsSigned, expr.ResultTypeSpec.Type.TypeRef);
+		}
+
+		private IValueAccessor IntToFloatExtensionHandle(IntToFloatExtensionExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.IntToFloatExtension(accessor, expr.IsSigned, expr.ResultTypeSpec.Type.TypeRef);
+		}
+
+		private IValueAccessor CreateGlobalArray(GlobalArrayExpression expr)
+		{
+			return _codeGenerator.CreateGlobalArray(expr.Array);
 		}
 
 		private TypeRef GetActualTypeRef(TypeSpec varDeclaring)

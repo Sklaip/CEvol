@@ -6,6 +6,7 @@ using CEvol.Core.LogicModels.Expressions;
 using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using System.Numerics;
+using System.Text;
 using System.Xml.Linq;
 using static CEvol.Core.MemebersModels.Qualifier;
 
@@ -93,7 +94,7 @@ namespace CEvol.Analysis
 					return;
 				}
 
-				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type));
+				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type), out _);
 			}
 			else
 			{
@@ -104,7 +105,7 @@ namespace CEvol.Analysis
 					return;
 				}
 
-				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type));
+				funcDesc = _typeAnalyzer.FindSuitableFunction(functions, parameters.Select(x => x.Type), out _);
 			}
 
 			if (funcDesc == null)
@@ -235,11 +236,16 @@ namespace CEvol.Analysis
 
 			returnResult = AutoDereferenceIfPointer(returnResult);
 
-			if (!_typeAnalyzer.StrictCheckTypeMatching(currentFunction.ReturnType.Type, returnResult.ResultTypeSpec.Type)
+			if (!_typeAnalyzer.CheckTypeMatching(currentFunction.ReturnType.Type, returnResult.ResultTypeSpec.Type, out bool needCast)
 				|| !currentFunction.ReturnType.QualifiersEquals(returnResult.ResultTypeSpec))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Invalid return type", CurrentPosition);
 				return;
+			}
+
+			if (needCast && (returnResult.ResultTypeSpec.Type is IntegerTypeDesc))
+			{
+				returnResult = ImplicitIntExtenssion(returnResult, currentFunction.ReturnType);
 			}
 
 			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult));
@@ -258,12 +264,19 @@ namespace CEvol.Analysis
 				return new StubForErrorExpression();
 			}
 
-			FuncDesc? funcDesc = _typeAnalyzer.FindSuitableFunction(functions, arguments.Select(x => x.ResultTypeSpec));
+			FuncDesc? funcDesc = _typeAnalyzer.FindSuitableFunction(functions, arguments.Select(x => x.ResultTypeSpec), out TypeSpec?[] casts);
 
 			if (funcDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
 				return new StubForErrorExpression();
+			}
+
+			for (int i = 0; i < casts.Length; i++)
+			{
+				TypeSpec? cast = casts[i];
+				if (!cast.HasValue || !(arguments[i].ResultTypeSpec.Type is IntegerTypeDesc)) continue;
+				arguments[i] = ImplicitIntExtenssion(arguments[i], cast.Value);
 			}
 
 			return new CallFunctionExpression(arguments, funcDesc);
@@ -283,7 +296,7 @@ namespace CEvol.Analysis
 				return new StubForErrorExpression();
 			}
 
-			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec));
+			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec), out TypeSpec?[] casts);
 
 			if (funcDesc == null)
 			{
@@ -296,19 +309,32 @@ namespace CEvol.Analysis
 
 			for (int i = 1; i <= arguments.Length; i++)
 			{
-				realArgs[i] = arguments[i - 1];
+				var sourceArgumentIndex = i - 1;
+				var currentCast = casts[sourceArgumentIndex];
+				var currentArg = arguments[sourceArgumentIndex];
+
+				if (currentCast.HasValue && (currentArg.ResultTypeSpec.Type is IntegerTypeDesc))
+				{
+					realArgs[i] = ImplicitIntExtenssion(currentArg, currentCast.Value);
+				}
+				else
+				{
+					realArgs[i] = currentArg;
+				}
 			}
 
 			return new CallFunctionExpression(realArgs, funcDesc);
 		}
 
-		public Expression CallHeapConstructor(string typeName, Expression[] arguments)
+		public Expression CallHeapConstructor(string typeName, Expression[] args)
 		{
 			var typeDesc = _membersFinder.FindType(typeName);
+			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
 			ConstructorDesc? ctorDesc = null;
 			var constructors = _membersFinder.FindConstructors(typeDesc);
 
+			// TODO: сделать автоприведение чисел
 			ctorDesc = _typeAnalyzer.FindSuitableConstructor(constructors, arguments.Select(x => x.ResultTypeSpec));
 
 			if (ctorDesc == null)
@@ -320,12 +346,6 @@ namespace CEvol.Analysis
 			var memory = new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]));
 			return new CallConstructorExpression(memory, ctorDesc, arguments);
 		}
-
-		//public Expression CallStackConstructor(string typeName, Expression[] arguments)
-		//{
-		//	var typeDesc = _membersFinder.FindType(typeName);
-		//	return new Expr(new TypeSpec(typeDesc), _codeGenerator.AllocateHeapMemory(typeDesc.TypeRef));
-		//}
 
 		public Expression CreateArrayInHeap(string typeName, Expression arraySize)
 		{
@@ -361,7 +381,7 @@ namespace CEvol.Analysis
 
 		public SimpleBinaryOperationExpression Sum(Expression left, Expression right)
 		{
-			if (!_typeAnalyzer.CheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
+			if (!_typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
@@ -372,7 +392,7 @@ namespace CEvol.Analysis
 
 		public SimpleBinaryOperationExpression Sub(Expression left, Expression right)
 		{
-			if (!_typeAnalyzer.CheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
+			if (!_typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
@@ -390,13 +410,17 @@ namespace CEvol.Analysis
 
 			var boolTypeSpec = new TypeSpec(TypeNameToTypeDesc("bool"));
 
-			//сравнение беззнаковых чисел
-			if (_typeAnalyzer.StrictCheckTypeMatching(uIntType, left.ResultTypeSpec.Type) && _typeAnalyzer.StrictCheckTypeMatching(uIntType, right.ResultTypeSpec.Type))
+			
+			if (_typeAnalyzer.CheckTypeMatching(uIntType, left.ResultTypeSpec.Type, out _) 
+				&& _typeAnalyzer.CheckTypeMatching(uIntType, right.ResultTypeSpec.Type, out _))
 			{
+				//сравнение беззнаковых чисел
 				return new CompareOperationExpression(compareOperator, false, leftAccessor, rightAccessor, boolTypeSpec);
 			}
-			else if (_typeAnalyzer.StrictCheckTypeMatching(intType, left.ResultTypeSpec.Type) && _typeAnalyzer.StrictCheckTypeMatching(intType, right.ResultTypeSpec.Type))
+			else if (_typeAnalyzer.CheckTypeMatching(intType, left.ResultTypeSpec.Type, out _) 
+				&& _typeAnalyzer.CheckTypeMatching(intType, right.ResultTypeSpec.Type, out _))
 			{
+				//сравнение знаковых чисел
 				return new CompareOperationExpression(compareOperator, true, leftAccessor, rightAccessor, boolTypeSpec);
 			}
 			else
@@ -435,7 +459,7 @@ namespace CEvol.Analysis
 			var intType = _membersFinder.FindType("int");
 
 			if (left.ResultTypeSpec.Type != right.ResultTypeSpec.Type ||
-				(left.ResultTypeSpec.Type != boolType && _typeAnalyzer.CheckTypeMatching(left.ResultTypeSpec.Type, intType)))
+				(left.ResultTypeSpec.Type != boolType && _typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, intType)))
 				throw new NotImplementedException();
 
 			var leftExpr = AutoDereferenceIfPointer(left);
@@ -463,7 +487,7 @@ namespace CEvol.Analysis
 		{
 			var boolType = _membersFinder.FindType("bool");
 			var intType = _membersFinder.FindType("int");
-			if (expr.ResultTypeSpec.Type != boolType && _typeAnalyzer.CheckTypeMatching(expr.ResultTypeSpec.Type, intType))
+			if (expr.ResultTypeSpec.Type != boolType && _typeAnalyzer.SoftCheckTypeMatching(expr.ResultTypeSpec.Type, intType))
 				throw new NotImplementedException();
 
 			var accessor = AutoDereferenceIfPointer(expr);
@@ -486,6 +510,18 @@ namespace CEvol.Analysis
 			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("byte")), BaseTypes.Byte, num);
 		}
 
+		public Expression CreateString(string str)
+		{
+			if (str[0] != '"' || str[str.Length - 1] != '"')
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Ivalid string", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			byte[] strBytes = Encoding.UTF8.GetBytes($"{str[1..^1]}\0");
+			return new GlobalArrayExpression(strBytes, new TypeSpec(TypeNameToTypeDesc("byte"), [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]));
+		}
+
 		public Expression CreateLocalVariable(string name, TypeSpec declaring)
 		{
 			CodeBlock block = _blocks.Peek();
@@ -499,19 +535,15 @@ namespace CEvol.Analysis
 
 		public Expression VariableAssing(Expression varExpr, Expression expr, Qualifier? assignQualifier)
 		{
-			//if (varAccess is not VariableAccessExpression varExpr) throw new NotImplementedException();
-
 			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression();
 
-			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type)) throw new NotImplementedException();
+			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type, out bool needCast)) 
+				throw new NotImplementedException();
 
 			// TODO: вынести это в какую-нибудь константу или прямо в класс занести, чтобы везде такую хуню не писать
 			if (varExpr.ResultTypeSpec.IsRef && !expr.ResultTypeSpec.IsRef)
 			{
-				var realVar = new PointerDereferenceExpression(varExpr);
-
-				return new SimpleBinaryOperationExpression(BinaryOperation.Assing, realVar,
-					GetAccessorOfRequiredType(expr, varExpr.ResultTypeSpec), realVar.ResultTypeSpec);
+				varExpr = new PointerDereferenceExpression(varExpr);
 			}
 			else if (varExpr.ResultTypeSpec.IsRef && expr.ResultTypeSpec.IsRef)
 			{
@@ -519,46 +551,21 @@ namespace CEvol.Analysis
 				{
 					throw new NotImplementedException(); // TODO: разрешить это в usafe контексте
 
-					var realValue = new PointerDereferenceExpression(expr);
-					var realVar = new PointerDereferenceExpression(varExpr);
-
-					return new SimpleBinaryOperationExpression(BinaryOperation.Assing, realVar,
-						GetAccessorOfRequiredType(realValue, expr.ResultTypeSpec, varExpr.ResultTypeSpec), realVar.ResultTypeSpec);
+					expr = new PointerDereferenceExpression(expr);
+					varExpr = new PointerDereferenceExpression(varExpr);
 				}
 				else
 				{
 					if (assignQualifier.Value.Kind != QKind.Reference) throw new NotImplementedException();
-
-					return new SimpleBinaryOperationExpression(BinaryOperation.Assing, varExpr,
-						GetAccessorOfRequiredType(expr, varExpr.ResultTypeSpec), varExpr.ResultTypeSpec);
-
 				}
 			}
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.Assing, varExpr,
-						GetAccessorOfRequiredType(expr, varExpr.ResultTypeSpec), varExpr.ResultTypeSpec);
-		}
-
-		private Expression GetAccessorOfRequiredType(Expression expr, TypeSpec valueForOrientation)
-		{
-			return GetAccessorOfRequiredType(expr, expr.ResultTypeSpec, valueForOrientation);
-		}
-
-		private Expression GetAccessorOfRequiredType(Expression expr, TypeSpec exprDeclaring, TypeSpec valueForOrientation)
-		{
-			if (CheckStubForError(expr)) return new StubForErrorExpression();
-
-			if (exprDeclaring.QualifiersExists || !exprDeclaring.Type.IsBaseType) return expr;
-
-			//проверяем что exprDeclaring имеет числовой тип
-			var intType = _membersFinder.FindType("int");
-			if (_typeAnalyzer.StrictCheckTypeMatching(intType, exprDeclaring.Type))
+			if (needCast && (expr.ResultTypeSpec.Type is IntegerTypeDesc))
 			{
-				if (exprDeclaring.Type == intType) return expr; // если не просто наследник int'а, а сам int, то возвращаем как есть
-				return new NumTruncExpression(expr, valueForOrientation);
+				expr = ImplicitIntExtenssion(expr, varExpr.ResultTypeSpec);
 			}
 
-			return expr;
+			return new SimpleBinaryOperationExpression(BinaryOperation.Assing, varExpr, expr, varExpr.ResultTypeSpec);
 		}
 
 		public Expression AutoDereferenceIfPointer(Expression expr)
@@ -600,6 +607,33 @@ namespace CEvol.Analysis
 		{
 			if (CheckStubForError(expr)) return new StubForErrorExpression();
 			return new DoNotAutoDereferenceIfPointerExpression(expr);
+		}
+
+		/// <summary>
+		/// Создает <see cref="Expression"/> для каста целого числа к переданному <see cref="TypeDesc"/>.
+		/// Подразумивается что <paramref name="expr"/> является целым числом, то есть может быть раширен до long, а
+		/// <paramref name="resultType"/> либо целоче число, либо число с плвающей точкой.
+		/// </summary>
+		/// <param name="expr">Выражение, которое нужно привести к типу <paramref name="resultType"/>. 
+		/// Должно иметь тип либо целого числа, либо числа с плавающей точкой</param>
+		/// <param name="resultType"></param>
+		/// <returns></returns>
+		private Expression ImplicitIntExtenssion(Expression expr, TypeSpec resultType)
+		{
+			var ulongType = _membersFinder.FindType("ulong");
+			var doubleType = _membersFinder.FindType("double");
+
+			bool isSigned = !_typeAnalyzer.CheckTypeMatching(expr.ResultTypeSpec.Type, ulongType, out _);
+			bool resultTypeIsFloat = _typeAnalyzer.CheckTypeMatching(resultType.Type, doubleType, out _);
+
+			if (resultTypeIsFloat)
+			{
+				return new IntToFloatExtensionExpression(expr, isSigned, resultType);
+			}
+			else
+			{
+				return new IntToIntExtensionExpression(expr, isSigned, resultType);
+			}
 		}
 
 		private TypeDesc TypeNameToTypeDesc(string typeName)

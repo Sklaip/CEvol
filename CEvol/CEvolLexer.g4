@@ -52,3 +52,4 @@ INFARGS : 'infargs';
 IDENTIFIER : [a-zA-Z_][a-zA-Z0-9_]*;
 NUMBER     : [0-9]+('.'[0-9]+)?;
 WS         : [ \t\r\n]+ -> skip;
+STRING     : '"' ( '\\' . | ~["\\\r\n] )* '"';

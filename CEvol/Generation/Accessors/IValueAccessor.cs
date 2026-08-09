@@ -7,5 +7,6 @@ namespace CEvol.Generation.Accessors
 		LLVMValueRef GetValue();
 		LLVMValueRef GetRealValue();
 		void SetValue(LLVMValueRef value);
+		LLVMTypeRef GetInnerType();
 	}
 }

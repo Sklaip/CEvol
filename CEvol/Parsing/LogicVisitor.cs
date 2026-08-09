@@ -470,6 +470,12 @@ namespace CEvol.Parsing
 			}
 		}
 
+		public override Expression? VisitStringExpr([NotNull] CEvolParser.StringExprContext context)
+		{
+			var str = context.STRING().GetText();
+			return _semanticAnalyzer.CreateString(str);
+		}
+
 		public override Expression? VisitReturnStmt([NotNull] CEvolParser.ReturnStmtContext context)
 		{
 			var lastPos = _semanticAnalyzer.CurrentPosition;

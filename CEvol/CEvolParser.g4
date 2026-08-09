@@ -63,6 +63,7 @@ arraySizeSpec : LBRACK expression (COMMA expression)* RBRACK ;
 // TODO: так же сейчас у NEW и REF разные приоритеты. Хз, но мнеп кажется так быть не должно
 expression 
     : MINUS? NUMBER                              # NumberExpr
+    | STRING                                     # StringExpr
     | IDENTIFIER                                 # IdExpr
     | LPAREN expression RPAREN                   # ParenExpr
 

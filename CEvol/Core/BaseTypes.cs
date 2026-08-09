@@ -15,6 +15,7 @@ namespace CEvol.Core
 		UInt,
 		Long,
 		Float,
+		Double,
 		Bool,
 		Pointer
 	}

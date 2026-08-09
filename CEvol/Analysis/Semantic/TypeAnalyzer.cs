@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CEvol.Analysis.Semantic
 {
@@ -11,18 +12,29 @@ namespace CEvol.Analysis.Semantic
 	{
 		private readonly MembersFinder _membersFinder;
 
-		private class VarDeclaringComparer : IEqualityComparer<TypeSpec>
+		private class ArgumentsComparer : IEqualityComparer<TypeSpec>
 		{
 			private readonly TypeAnalyzer _typeAnalyzer;
+			public readonly TypeSpec?[] Downcasts;
+			private int _index = 0;
 
-			public VarDeclaringComparer(TypeAnalyzer typeAnalyzer)
+			public ArgumentsComparer(TypeAnalyzer typeAnalyzer, int size)
 			{
 				_typeAnalyzer = typeAnalyzer;
+				Downcasts = new TypeSpec?[size];
 			}
 
 			public bool Equals(TypeSpec x, TypeSpec y)
 			{
-				return _typeAnalyzer.StrictCheckTypeMatching(x.Type, y.Type) && x.QualifiersEquals(y);
+				var result = _typeAnalyzer.CheckTypeMatching(x.Type, y.Type, out bool notDirectMatch) && x.QualifiersEquals(y);
+
+				if (notDirectMatch)
+				{
+					Downcasts[_index] = x;
+				}
+
+				_index++;
+				return result;
 			}
 
 			public int GetHashCode([DisallowNull] TypeSpec obj)
@@ -36,34 +48,47 @@ namespace CEvol.Analysis.Semantic
 			_membersFinder = membersFinder;
 		}
 
-		public bool StrictCheckTypeMatching(TypeDesc to, TypeDesc from)
+		public bool CheckTypeMatching(TypeDesc to, TypeDesc from, out bool notDirectMatch)
 		{
-			return Is(to, from);
+			return Is(to, from, out notDirectMatch);
 		}
 
-		public bool CheckTypeMatching(TypeDesc first, TypeDesc second)
+		public bool SoftCheckTypeMatching(TypeDesc first, TypeDesc second)
 		{
-			if (Is(first, second)) return true;
-			return Is(second, first);
+			if (Is(first, second, out _)) return true;
+			return Is(second, first, out _);
 		}
 
-		public FuncDesc? FindSuitableFunction(FuncDesc[] functions, IEnumerable<TypeSpec> arguments)
+		public FuncDesc? FindSuitableFunction(FuncDesc[] functions, IEnumerable<TypeSpec> arguments, out TypeSpec?[] downcasts)
 		{
+			// TODO: проверять что подходит только одна функция, если подходит несколько то выдавать ошибку
 			foreach (var func in functions)
 			{
+				var agrsCount = func.Arguments.Length;
+				var comparer = new ArgumentsComparer(this, agrsCount);
 				var funcArgs = func.Arguments.Select(x => x.Declaring);
-				if (funcArgs.SequenceEqual(arguments, new VarDeclaringComparer(this)))
+
+				if (funcArgs.SequenceEqual(arguments, comparer))
+				{
+					downcasts = comparer.Downcasts;
 					return func;
+				}
 
 				if (func.IsInfArgs)
 				{
 					var funcArgsArr = funcArgs.ToArray();
-					var argsArray = arguments.Take(funcArgs.Count()).ToArray();
-					if (funcArgsArr.SequenceEqual(argsArray, new VarDeclaringComparer(this)))
+					var argsArray = arguments.Take(agrsCount).ToArray();
+					comparer = new ArgumentsComparer(this, agrsCount);
+
+					if (funcArgsArr.SequenceEqual(argsArray, comparer))
+					{
+						downcasts = comparer.Downcasts;
 						return func;
+					}
 				}
 			}
 
+			downcasts = [];
 			return null;
 		}
 
@@ -72,19 +97,27 @@ namespace CEvol.Analysis.Semantic
 			foreach (var ctor in constructors)
 			{
 				var funcArgs = ctor.Arguments.Select(x => x.Declaring);
-				if (funcArgs.SequenceEqual(arguments, new VarDeclaringComparer(this)))
+				if (funcArgs.SequenceEqual(arguments, new ArgumentsComparer(this, ctor.Arguments.Length)))
 					return ctor;
 			}
 
 			return null;
 		}
 
-		private bool Is(TypeDesc to, TypeDesc from)
+		private bool Is(TypeDesc to, TypeDesc from, out bool notDirectMatch)
 		{
+			notDirectMatch = false;
 			if (to == from) return true;
+
+			notDirectMatch = true;
 			foreach (var inheritedType in from.InheritedTypes)
 			{
-				if (Is(to, inheritedType)) return true;
+				if (Is(to, inheritedType, out _)) return true;
+			}
+
+			foreach (var expandedType in from.CanExpandedTo)
+			{
+				if (Is(to, expandedType, out _)) return true;
 			}
 
 			return false;

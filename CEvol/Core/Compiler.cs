@@ -132,18 +132,28 @@ namespace CEvol.Core
 			var types = new Dictionary<string, TypeDesc>();
 			types["void"] = new TypeDesc("void", codeGenerator.GetType(BaseTypes.Void));
 			types["bool"] = new TypeDesc("bool", codeGenerator.GetType(BaseTypes.Bool));
-			types["byte"] = new TypeDesc("byte", codeGenerator.GetType(BaseTypes.Byte));
-			types["short"] = new TypeDesc("short", codeGenerator.GetType(BaseTypes.Short));
-			types["int"] = new TypeDesc("int", codeGenerator.GetType(BaseTypes.Int));
-			types["sbyte"] = new TypeDesc("sbyte", codeGenerator.GetType(BaseTypes.Byte));
-			types["ushort"] = new TypeDesc("ushort", codeGenerator.GetType(BaseTypes.Short));
-			types["uint"] = new TypeDesc("uint", codeGenerator.GetType(BaseTypes.Int));
+			types["byte"] = new IntegerTypeDesc("byte", codeGenerator.GetType(BaseTypes.Byte));
+			types["short"] = new IntegerTypeDesc("short", codeGenerator.GetType(BaseTypes.Short));
+			types["int"] = new IntegerTypeDesc("int", codeGenerator.GetType(BaseTypes.Int));
+			types["long"] = new IntegerTypeDesc("long", codeGenerator.GetType(BaseTypes.Long));
+			types["sbyte"] = new IntegerTypeDesc("sbyte", codeGenerator.GetType(BaseTypes.Byte));
+			types["ushort"] = new IntegerTypeDesc("ushort", codeGenerator.GetType(BaseTypes.Short));
+			types["uint"] = new IntegerTypeDesc("uint", codeGenerator.GetType(BaseTypes.Int));
+			types["ulong"] = new IntegerTypeDesc("long", codeGenerator.GetType(BaseTypes.Long));
+			types["float"] = new FloatTypeDesc("float", codeGenerator.GetType(BaseTypes.Float));
+			types["double"] = new FloatTypeDesc("double", codeGenerator.GetType(BaseTypes.Double));
 
-			types["short"].InheritedTypes.Add(types["int"]);
-			types["sbyte"].InheritedTypes.Add(types["short"]);
+			types["short"].CanExpandedTo.Add(types["int"]);
+			types["sbyte"].CanExpandedTo.Add(types["short"]);
 
-			types["ushort"].InheritedTypes.AddRange(types["uint"], types["int"]);
-			types["byte"].InheritedTypes.AddRange(types["short"], types["ushort"]);
+			types["ushort"].CanExpandedTo.AddRange(types["uint"], types["int"]);
+			types["byte"].CanExpandedTo.AddRange(types["short"], types["ushort"]);
+
+			types["int"].CanExpandedTo.AddRange(types["long"], types["float"]);
+			types["uint"].CanExpandedTo.AddRange(types["long"], types["ulong"], types["float"]);
+
+			types["long"].CanExpandedTo.Add(types["double"]);
+			types["ulong"].CanExpandedTo.AddRange(types["double"]);
 
 			return new MembersTable([], types);
 		}

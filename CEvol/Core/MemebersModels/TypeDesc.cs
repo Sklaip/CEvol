@@ -12,6 +12,7 @@ namespace CEvol.Core.MemebersModels
 		public readonly Dictionary<string, FuncDesc[]> Functions;
 		public readonly List<ConstructorDesc> Constructors;
 		public readonly List<TypeDesc> InheritedTypes = [];
+		public readonly List<TypeDesc> CanExpandedTo = [];
 
 		public readonly TypeRef TypeRef;
 
@@ -35,20 +36,6 @@ namespace CEvol.Core.MemebersModels
 			Constructors = [];
 			IsBaseType = true;
 			TypeRef = typeRef;
-		}
-
-		public BaseTypes GetBaseType()
-		{
-			switch (Name)
-			{
-				case "int": return BaseTypes.Int;
-				case "bool": return BaseTypes.Bool;
-				case "ref":
-				case "sharedRef":
-				case "borrowerRef":
-					return BaseTypes.Pointer;
-				default: throw new NotImplementedException();
-			}
 		}
 	}
 }

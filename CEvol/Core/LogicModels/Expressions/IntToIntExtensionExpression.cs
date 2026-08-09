@@ -5,13 +5,15 @@ using System.Text;
 
 namespace CEvol.Core.LogicModels.Expressions
 {
-	public class NumTruncExpression : Expression
+	public class IntToIntExtensionExpression : Expression
 	{
 		public readonly Expression NumGetting;
+		public readonly bool IsSigned;
 
-		public NumTruncExpression(Expression numGetting, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public IntToIntExtensionExpression(Expression numGetting, bool isSigned, TypeSpec resultTypeSpec) : base(resultTypeSpec)
 		{
 			NumGetting = numGetting;
+			IsSigned = isSigned;
 		}
 	}
 }

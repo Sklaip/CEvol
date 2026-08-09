@@ -18,6 +18,11 @@ namespace CEvol.Generation.Accessors
 			_varType = varType;
 		}
 
+		public LLVMTypeRef GetInnerType()
+		{
+			return _varType;
+		}
+
 		public LLVMValueRef GetRealValue()
 		{
 			//возвращаем ссылку на стек
