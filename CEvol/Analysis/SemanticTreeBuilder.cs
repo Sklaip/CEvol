@@ -518,7 +518,7 @@ namespace CEvol.Analysis
 				return new StubForErrorExpression();
 			}
 
-			byte[] strBytes = Encoding.UTF8.GetBytes($"{str[1..^1]}\0");
+			byte[] strBytes = Encoding.UTF8.GetBytes($"{str.Replace(@"\n", Environment.NewLine)[1..^1]}\0");
 			return new GlobalArrayExpression(strBytes, new TypeSpec(TypeNameToTypeDesc("byte"), [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]));
 		}
 
