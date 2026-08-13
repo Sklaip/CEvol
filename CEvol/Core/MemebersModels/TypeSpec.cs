@@ -14,6 +14,7 @@ namespace CEvol.Core.MemebersModels
 
 		public bool QualifiersExists => Qualifiers != null && Qualifiers.Length > 0;
 		public bool IsRef => QualifiersExists && Qualifiers[0].Kind == Qualifier.QKind.Reference;
+		public bool ArrayExists => Qualifiers.Any(x => x.Kind == Qualifier.QKind.Array);
 
 		public TypeSpec()
 		{

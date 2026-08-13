@@ -24,6 +24,8 @@ namespace CEvol.Analysis
 
 		public PositionInSources CurrentPosition { get; set; }
 
+		public bool UnsafeMode { get; set; } = true;
+
 		private class CodeBlock
 		{
 			// TODO: здесь наверное сделать параметр показывающий текущий тип блока (функция, класс и тп) чтобы понимать можно ли сюда пихать выражение
@@ -410,14 +412,14 @@ namespace CEvol.Analysis
 
 			var boolTypeSpec = new TypeSpec(TypeNameToTypeDesc("bool"));
 
-			
-			if (_typeAnalyzer.CheckTypeMatching(uIntType, left.ResultTypeSpec.Type, out _) 
+
+			if (_typeAnalyzer.CheckTypeMatching(uIntType, left.ResultTypeSpec.Type, out _)
 				&& _typeAnalyzer.CheckTypeMatching(uIntType, right.ResultTypeSpec.Type, out _))
 			{
 				//сравнение беззнаковых чисел
 				return new CompareOperationExpression(compareOperator, false, leftAccessor, rightAccessor, boolTypeSpec);
 			}
-			else if (_typeAnalyzer.CheckTypeMatching(intType, left.ResultTypeSpec.Type, out _) 
+			else if (_typeAnalyzer.CheckTypeMatching(intType, left.ResultTypeSpec.Type, out _)
 				&& _typeAnalyzer.CheckTypeMatching(intType, right.ResultTypeSpec.Type, out _))
 			{
 				//сравнение знаковых чисел
@@ -537,7 +539,7 @@ namespace CEvol.Analysis
 		{
 			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression();
 
-			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type, out bool needCast)) 
+			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type, out bool needCast))
 				throw new NotImplementedException();
 
 			// TODO: вынести это в какую-нибудь константу или прямо в класс занести, чтобы везде такую хуню не писать
@@ -605,8 +607,93 @@ namespace CEvol.Analysis
 
 		public Expression SetRefQualifier(Expression expr)
 		{
+
 			if (CheckStubForError(expr)) return new StubForErrorExpression();
 			return new DoNotAutoDereferenceIfPointerExpression(expr);
+		}
+
+		public Expression TypeCast(Expression expr, TypeSpec toType)
+		{
+			if (CheckStubForError(expr)) return new StubForErrorExpression();
+
+			if (!UnsafeMode)
+			{
+				if (toType.ArrayExists)
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Casting array types is prohibited in a safe context", CurrentPosition);
+					return new StubForErrorExpression();
+				}
+
+				if (!toType.QualifiersEquals(expr.ResultTypeSpec) || !_typeAnalyzer.SoftCheckTypeMatching(expr.ResultTypeSpec.Type, toType.Type))
+				{
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Implicit casting of heterogeneous types is prohibited in a safe context", CurrentPosition);
+					return new StubForErrorExpression();
+				}
+			}
+
+			return BuildCastExpression(expr, toType);
+		}
+
+		private Expression BuildCastExpression(Expression expr, TypeSpec toType)
+		{
+			TypeSpec fromSpec = expr.ResultTypeSpec;
+			TypeDesc fromDesc = fromSpec.Type;
+			TypeDesc toDesc = toType.Type;
+
+			bool fromIsPointer = fromSpec.IsRef;
+			bool toIsPointer = toType.IsRef;
+			bool fromIsInt = fromDesc is IntegerTypeDesc;
+			bool toIsInt = toDesc is IntegerTypeDesc;
+			bool fromIsFloat = fromDesc is FloatTypeDesc;
+			bool toIsFloat = toDesc is FloatTypeDesc;
+
+			if (fromIsPointer && toIsPointer)
+				return new CastExpression(expr, toType);
+
+			if (fromIsInt && toIsPointer)
+				return new IntToPointerExpression(expr, toType);
+
+			if (fromIsPointer && toIsInt)
+				return new PointerToIntExpression(expr, toType);
+
+			if (fromIsInt && toIsFloat)
+				return new IntToFloatExtensionExpression(expr, IsSignedInteger(fromSpec), toType);
+
+			if (fromIsFloat && toIsInt)
+				return new FloatToIntExpression(expr, IsSignedInteger(toType), toType);
+
+			if (fromIsInt && toIsInt)
+			{
+				if (fromDesc == toDesc)
+					return new CastExpression(expr, toType); // TODO: тут должно быть сообщение что приведение бессмысленно
+
+				if (_typeAnalyzer.CheckTypeMatching(toDesc, fromDesc, out _))
+					return new IntToIntExtensionExpression(expr, IsSignedInteger(fromSpec), toType);
+
+				if (_typeAnalyzer.CheckTypeMatching(fromDesc, toDesc, out _))
+					return new IntTruncExpression(expr, toType);
+
+			}
+
+			if (fromIsFloat && toIsFloat)
+			{
+				if (fromDesc == toDesc)
+					return new CastExpression(expr, toType);
+
+				if (_typeAnalyzer.CheckTypeMatching(toDesc, fromDesc, out _))
+					return new FloatToFloatExpression(expr, toType);
+
+				if (_typeAnalyzer.CheckTypeMatching(fromDesc, toDesc, out _))
+					return new FloatTruncExpression(expr, toType);
+			}
+
+			return new ReinterpretCastExpression(expr, toType);
+		}
+
+		private bool IsSignedInteger(TypeSpec typeSpec)
+		{
+			var ulongType = _membersFinder.FindType("ulong");
+			return !_typeAnalyzer.CheckTypeMatching(typeSpec.Type, ulongType, out _);
 		}
 
 		/// <summary>
@@ -620,10 +707,9 @@ namespace CEvol.Analysis
 		/// <returns></returns>
 		private Expression ImplicitIntExtenssion(Expression expr, TypeSpec resultType)
 		{
-			var ulongType = _membersFinder.FindType("ulong");
 			var doubleType = _membersFinder.FindType("double");
 
-			bool isSigned = !_typeAnalyzer.CheckTypeMatching(expr.ResultTypeSpec.Type, ulongType, out _);
+			bool isSigned = IsSignedInteger(expr.ResultTypeSpec);
 			bool resultTypeIsFloat = _typeAnalyzer.CheckTypeMatching(resultType.Type, doubleType, out _);
 
 			if (resultTypeIsFloat)

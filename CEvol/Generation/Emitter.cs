@@ -215,6 +215,20 @@ namespace CEvol.Generation
 					return IntToIntExtensionHandle(intToIntExtensionExpression);
 				case IntToFloatExtensionExpression intToFloatExtensionExpression:
 					return IntToFloatExtensionHandle(intToFloatExtensionExpression);
+				case IntTruncExpression intTruncExpression:
+					return IntTruncHandle(intTruncExpression);
+				case IntToPointerExpression intToPointerExpression:
+					return IntToPointerHandle(intToPointerExpression);
+				case PointerToIntExpression pointerToIntExpression:
+					return PointerToIntHandle(pointerToIntExpression);
+				case FloatToIntExpression floatToIntExpression:
+					return FloatToIntHandle(floatToIntExpression);
+				case FloatToFloatExpression floatToFloatExpression:
+					return FloatToFloatHandle(floatToFloatExpression);
+				case FloatTruncExpression floatTruncExpression:
+					return FloatTruncHandle(floatTruncExpression);
+				case ReinterpretCastExpression reinterpretCastExpression:
+					return ReinterpretCastHandle(reinterpretCastExpression);
 				default:
 					throw new NotImplementedException();
 			}
@@ -366,6 +380,48 @@ namespace CEvol.Generation
 		{
 			var accessor = HandleExpression(expr.NumGetting);
 			return _codeGenerator.IntToFloatExtension(accessor, expr.IsSigned, expr.ResultTypeSpec.Type.TypeRef);
+		}
+
+		private IValueAccessor IntTruncHandle(IntTruncExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.IntTruncation(accessor, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor IntToPointerHandle(IntToPointerExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.IntToPointerCast(accessor, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor PointerToIntHandle(PointerToIntExpression expr)
+		{
+			var accessor = HandleExpression(expr.PointerGetting);
+			return _codeGenerator.PointerToIntCast(accessor, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor FloatToIntHandle(FloatToIntExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.FloatToIntCast(accessor, expr.IsSigned, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor FloatToFloatHandle(FloatToFloatExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.FloatToFloat(accessor, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor FloatTruncHandle(FloatTruncExpression expr)
+		{
+			var accessor = HandleExpression(expr.NumGetting);
+			return _codeGenerator.FloatTruncation(accessor, GetActualTypeRef(expr.ResultTypeSpec));
+		}
+
+		private IValueAccessor ReinterpretCastHandle(ReinterpretCastExpression expr)
+		{
+			var accessor = HandleExpression(expr.CastedExpression);
+			return _codeGenerator.ReinterpretCast(accessor, GetActualTypeRef(expr.ResultTypeSpec));
 		}
 
 		private IValueAccessor CreateGlobalArray(GlobalArrayExpression expr)

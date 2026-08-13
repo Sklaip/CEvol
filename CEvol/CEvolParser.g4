@@ -76,6 +76,8 @@ expression
     | expression LBRACK args RBRACK              # IndexExpr
     | expression DOT IDENTIFIER ( LPAREN args? RPAREN )? # MemberAccess
 
+    | LPAREN typeSpec RPAREN expression # CastExpr
+
     | LOC expression                             # LocExpr
     | REF expression                             # RefExpr
 

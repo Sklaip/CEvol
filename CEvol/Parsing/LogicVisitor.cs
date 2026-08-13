@@ -586,6 +586,21 @@ namespace CEvol.Parsing
 			return res;
 		}
 
+		public override Expression? VisitCastExpr([NotNull] CEvolParser.CastExprContext context)
+		{
+			var lastPos = _semanticAnalyzer.CurrentPosition;
+			SetCurrentPosition(context);
+
+			var expression = Visit(context.expression());
+			if (expression == null) throw new NotImplementedException();
+
+			var typeSpec = ParseTypeSpec(context.typeSpec());
+			var res = _semanticAnalyzer.TypeCast(expression, typeSpec);
+
+			_semanticAnalyzer.CurrentPosition = lastPos;
+			return res;
+		}
+
 		public override Expression? VisitEqNeqExpr([NotNull] CEvolParser.EqNeqExprContext context)
 		{
 			(Expression left, Expression right) = ParseBinaryExpression(context.expression());

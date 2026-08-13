@@ -17,7 +17,6 @@ namespace CEvol.Generation
 {
 	internal class CodeGenerator
 	{
-		private readonly string _moduleName;
 		private readonly LLVMContextRef _context;
 		private readonly LLVMModuleRef _module;
 		private readonly LLVMBuilderRef _builder;
@@ -37,12 +36,10 @@ namespace CEvol.Generation
 
 		public readonly TypeRef PointerType;
 
-		public CodeGenerator(string moduleName)
+		public CodeGenerator(LLVMContextRef context, LLVMModuleRef module)
 		{
-			_moduleName = moduleName;
-
-			_context = LLVMContextRef.Create();
-			_module = _context.CreateModuleWithName(moduleName);
+			_context = context;
+			_module = module;
 			_builder = _context.CreateBuilder();
 
 			DeclareMalloc();
@@ -482,6 +479,64 @@ namespace CEvol.Generation
 			return new SimpleValueAccessor(res, type.Type);
 		}
 
+		public IValueAccessor IntToPointerCast(IValueAccessor value, TypeRef type)
+		{
+			var res = _builder.BuildIntToPtr(value.GetValue(), type.Type);
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor PointerToIntCast(IValueAccessor value, TypeRef type)
+		{
+			var res = _builder.BuildPtrToInt(value.GetValue(), type.Type);
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor FloatToIntCast(IValueAccessor value, bool isSigned, TypeRef type)
+		{
+			LLVMValueRef res;
+			if (isSigned)
+			{
+				res = _builder.BuildFPToSI(value.GetValue(), type.Type);
+			}
+			else
+			{
+				res = _builder.BuildFPToUI(value.GetValue(), type.Type);
+			}
+
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor FloatToFloat(IValueAccessor value, TypeRef type)
+		{
+			var res = _builder.BuildFPExt(value.GetValue(), type.Type);
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor FloatTruncation(IValueAccessor value, TypeRef type)
+		{
+			var res = _builder.BuildFPTrunc(value.GetValue(), type.Type);
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor IntTruncation(IValueAccessor value, TypeRef type)
+		{
+			var res = _builder.BuildTrunc(value.GetValue(), type.Type);
+			return new SimpleValueAccessor(res, type.Type);
+		}
+
+		public IValueAccessor ReinterpretCast(IValueAccessor value, TypeRef type)
+		{
+			if (value is VarAccessor varAccessor)
+			{
+				return new SimpleValueAccessor(_builder.BuildLoad2(type.Type, varAccessor.GetRealValue()), type.Type);
+			}
+
+			var ptr = _builder.BuildAlloca(value.GetInnerType());
+			_builder.BuildStore(value.GetValue(), ptr);
+
+			return new SimpleValueAccessor(_builder.BuildLoad2(type.Type, ptr), type.Type);
+		}
+
 		/// <summary>
 		/// Если оба параметры числа, то обрезает <paramref name="value"/> до типа <paramref name="dest"/>
 		/// Это нужно потому что все числовые константы мы создаем изначально с типом int или long. 
@@ -508,53 +563,6 @@ namespace CEvol.Generation
 			}
 
 			return value;
-		}
-
-		private int GetTypeRank(LLVMTypeRef type) => type.Kind switch
-		{
-			LLVMTypeKind.LLVMIntegerTypeKind => (int)type.IntWidth,
-			LLVMTypeKind.LLVMHalfTypeKind => 100,
-			LLVMTypeKind.LLVMFloatTypeKind => 200,
-			LLVMTypeKind.LLVMDoubleTypeKind => 300,
-			LLVMTypeKind.LLVMFP128TypeKind => 400,
-			_ => throw new NotImplementedException()
-		};
-
-		private LLVMValueRef ReduceToOneType(LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right)
-		{
-			int rankL = GetTypeRank(left.TypeOf);
-			int rankR = GetTypeRank(right.TypeOf);
-
-			// Приводим к типу с наибольшим рангом
-			if (rankL < rankR)
-				left = CastTo(builder, left, right.TypeOf);
-			else if (rankR < rankL)
-				right = CastTo(builder, right, left.TypeOf);
-
-			// Выбираем правильное сложение (Float или Int)
-			return left.TypeOf.Kind == LLVMTypeKind.LLVMIntegerTypeKind
-				? builder.BuildAdd(left, right, "add_int")
-				: builder.BuildFAdd(left, right, "add_float");
-		}
-
-		private LLVMValueRef CastTo(LLVMBuilderRef builder, LLVMValueRef val, LLVMTypeRef targetType)
-		{
-			var srcKind = val.TypeOf.Kind;
-			var dstKind = targetType.Kind;
-
-			// Int -> Int (расширение)
-			if (srcKind == LLVMTypeKind.LLVMIntegerTypeKind && dstKind == LLVMTypeKind.LLVMIntegerTypeKind)
-				return builder.BuildZExt(val, targetType, "zext"); // или BuildSExt для знаковых
-
-			// Int -> Float / Double
-			if (srcKind == LLVMTypeKind.LLVMIntegerTypeKind && dstKind != LLVMTypeKind.LLVMIntegerTypeKind)
-				return builder.BuildSIToFP(val, targetType, "sitofp"); // или BuildUIToFP
-
-			// Float -> Float (например, float -> double)
-			if (srcKind != LLVMTypeKind.LLVMIntegerTypeKind && dstKind != LLVMTypeKind.LLVMIntegerTypeKind)
-				return builder.BuildFPExt(val, targetType, "fpext");
-
-			throw new InvalidOperationException("Неподдерживаемое приведение");
 		}
 
 		private LLVMTypeRef BaseTypeToLLVMType(BaseTypes type)

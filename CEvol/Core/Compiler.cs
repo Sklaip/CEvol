@@ -4,7 +4,9 @@ using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using CEvol.Generation;
 using CEvol.Parsing;
+using LLVMSharp;
 using LLVMSharp.Interop;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -12,7 +14,8 @@ namespace CEvol.Core
 {
 	internal class Compiler
 	{
-		// Служебная структура для хранения спарсенного AST файла
+		private LLVMTargetMachineRef _targetMachine;
+
 		private class FileUnit
 		{
 			public string FilePath { get; set; } = string.Empty;
@@ -64,7 +67,7 @@ namespace CEvol.Core
 				moduleName = "main_module";
 			}
 
-			var codeGenerator = new CodeGenerator(moduleName);
+			var codeGenerator = BuildCodeGenerator(moduleName);
 			var baseMemebersList = BuildBaseMembersList(codeGenerator);
 			MembersTable globalMembersTable = new MembersTable();
 
@@ -110,16 +113,7 @@ namespace CEvol.Core
 				var emitter = new Emitter(codeGenerator);
 				emitter.Build(program);
 
-				var module = emitter.CodeGenerator.GetModule();
-
-				Console.WriteLine("================ ИСХОДНЫЙ IR ================");
-				module.Dump();
-
-				codeGenerator.VerifyModule();
-
-				Optimize(module);
-
-				Compile(module, outputFile);
+				Compile(emitter.CodeGenerator, outputFile);
 			}
 			else
 			{
@@ -154,8 +148,61 @@ namespace CEvol.Core
 
 			types["long"].CanExpandedTo.Add(types["double"]);
 			types["ulong"].CanExpandedTo.AddRange(types["double"]);
+			types["float"].CanExpandedTo.Add(types["double"]);
 
 			return new MembersTable([], types);
+		}
+
+		private unsafe CodeGenerator BuildCodeGenerator(string moduleName)
+		{
+			string triple = LLVMTargetRef.DefaultTriple;
+			var target = LLVMTargetRef.GetTargetFromTriple(triple);
+			_targetMachine = target.CreateTargetMachine(
+				triple,
+				cpu: "generic",
+				features: "",
+				LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault,
+				LLVMRelocMode.LLVMRelocDefault,
+				LLVMCodeModel.LLVMCodeModelDefault
+			);
+
+			LLVMTargetDataRef dataLayoutRef = _targetMachine.CreateTargetDataLayout();
+			string dataLayoutString = new string(LLVM.CopyStringRepOfTargetData(dataLayoutRef));
+
+			var context = LLVMContextRef.Create();
+			var module = context.CreateModuleWithName(moduleName);
+
+			module.Target = triple;
+			module.DataLayout = dataLayoutString;
+
+			return new CodeGenerator(context, module);
+		}
+
+		private void Compile(CodeGenerator codeGenerator, string targetExePath)
+		{
+			var module = codeGenerator.GetModule();
+
+			Console.WriteLine("================ ИСХОДНЫЙ IR ================");
+			module.Dump();
+
+			codeGenerator.VerifyModule();
+
+			Console.WriteLine("\n================ ОПТИМИЗИРОВАННЫЙ IR ================");
+			Optimize(module);
+
+			string objFileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "output.obj" : "output.o";
+
+			if (_targetMachine.TryEmitToFile(module, objFileName, LLVMCodeGenFileType.LLVMObjectFile, out string errorMessage))
+			{
+				Console.WriteLine($"Объектный файл успешно создан: {objFileName}");
+			}
+			else
+			{
+				Console.WriteLine($"Ошибка генерации: {errorMessage}");
+				return;
+			}
+
+			LinkExecutable(objFileName, targetExePath);
 		}
 
 		private unsafe void Optimize(LLVMModuleRef module)
@@ -197,43 +244,12 @@ namespace CEvol.Core
 			else
 			{
 				string optimizedIR = module.PrintToString();
-				Console.WriteLine("\n================ ОПТИМИЗИРОВАННЫЙ IR ================");
 				Console.WriteLine(optimizedIR);
 			}
 
 			LLVM.DisposePassBuilderOptions(passOptions);
 		}
 
-		private void Compile(LLVMModuleRef module, string targetExePath)
-		{
-			string triple = LLVMTargetRef.DefaultTriple;
-			var target = LLVMTargetRef.GetTargetFromTriple(triple);
-
-			var targetMachine = target.CreateTargetMachine(
-				triple,
-				cpu: "generic",
-				features: "",
-				LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault,
-				LLVMRelocMode.LLVMRelocDefault,
-				LLVMCodeModel.LLVMCodeModelDefault
-			);
-
-			module.Target = triple;
-
-			string objFileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "output.obj" : "output.o";
-
-			if (targetMachine.TryEmitToFile(module, objFileName, LLVMCodeGenFileType.LLVMObjectFile, out string errorMessage))
-			{
-				Console.WriteLine($"Объектный файл успешно создан: {objFileName}");
-			}
-			else
-			{
-				Console.WriteLine($"Ошибка генерации: {errorMessage}");
-				return;
-			}
-
-			LinkExecutable(objFileName, targetExePath);
-		}
 
 		private void LinkExecutable(string objFile, string exeFile)
 		{
