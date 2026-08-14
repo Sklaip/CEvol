@@ -164,7 +164,14 @@ namespace CEvol.Parsing
 
 			var ctx = context.fieldDecl();
 
-			var typeSpec = ParseTypeSpec(ctx.typeSpec());
+			var typeSpec_ = ParseTypeSpec(ctx.typeSpec());
+			if (typeSpec_ == null)
+			{
+				_semanticAnalyzer.CurrentPosition = lastPos;
+				return new StubForErrorExpression();
+			}
+
+			var typeSpec = typeSpec_.Value;
 
 			var varName = ctx.IDENTIFIER().ToString();
 			if (varName == null) throw new NotImplementedException();
@@ -257,10 +264,11 @@ namespace CEvol.Parsing
 
 			for (int i = 0; i < count; i++)
 			{
-				TypeSpec paramDecl = ParseTypeSpec(context.typeSpec(i));
+				TypeSpec? paramDecl = ParseTypeSpec(context.typeSpec(i));
 				string paramName = context.IDENTIFIER(i).GetText();
 
-				parameters.Add((paramDecl, paramName));
+				if (paramDecl == null) continue;
+				parameters.Add((paramDecl.Value, paramName));
 			}
 
 			return parameters;
@@ -418,7 +426,7 @@ namespace CEvol.Parsing
 			}
 		}
 
-		private TypeSpec ParseTypeSpec([NotNull] CEvolParser.TypeSpecContext context)
+		private TypeSpec? ParseTypeSpec([NotNull] CEvolParser.TypeSpecContext context)
 		{
 			// TODO: поля классов парсить здесь повторно смысла нет. Надо как-то это все кэшировать
 			var typeName = context.IDENTIFIER().GetText();
@@ -436,7 +444,14 @@ namespace CEvol.Parsing
 				qualifiers.Add(ParseArraySpec(arr));
 			}
 
-			return new TypeSpec(_membersFinder.FindType(typeName), Qualifier.FromString(qualifiers));
+			var typeDesc = _membersFinder.TryFindType(typeName);
+			if (typeDesc == null)
+			{
+				_semanticAnalyzer.ReportError($"The type '{typeName}' was not found");
+				return null;
+			}
+
+			return new TypeSpec(typeDesc, Qualifier.FromString(qualifiers));
 		}
 
 		public string ParseArraySpec([NotNull] CEvolParser.ArraySpecContext context)
@@ -595,7 +610,13 @@ namespace CEvol.Parsing
 			if (expression == null) throw new NotImplementedException();
 
 			var typeSpec = ParseTypeSpec(context.typeSpec());
-			var res = _semanticAnalyzer.TypeCast(expression, typeSpec);
+			if (typeSpec == null)
+			{
+				_semanticAnalyzer.CurrentPosition = lastPos;
+				return new StubForErrorExpression();
+			}
+
+			var res = _semanticAnalyzer.TypeCast(expression, typeSpec.Value);
 
 			_semanticAnalyzer.CurrentPosition = lastPos;
 			return res;

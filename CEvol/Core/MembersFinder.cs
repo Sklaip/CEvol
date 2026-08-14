@@ -36,7 +36,12 @@ namespace CEvol.Core
 
 		public TypeDesc FindType(string name)
 		{
-			if (_membersTable.Types.TryGetValue(name, out TypeDesc typeDesc))
+			return TryFindType(name) ?? throw new NotImplementedException();
+		}
+
+		public TypeDesc? TryFindType(string name)
+		{
+			if (_membersTable.Types.TryGetValue(name, out TypeDesc? typeDesc))
 				return typeDesc;
 
 			foreach (string nameSpace in _usings)
@@ -45,7 +50,7 @@ namespace CEvol.Core
 					return typeDesc;
 			}
 
-			throw new NotImplementedException();
+			return null;
 		}
 
 		public FuncDesc[]? FindFunction(string name)

@@ -94,13 +94,23 @@ namespace CEvol.Analysis.Semantic
 
 		public ConstructorDesc? FindSuitableConstructor(IEnumerable<ConstructorDesc> constructors, IEnumerable<TypeSpec> arguments)
 		{
+			return FindSuitableConstructor(constructors, arguments, out _);
+		}
+
+		public ConstructorDesc? FindSuitableConstructor(IEnumerable<ConstructorDesc> constructors, IEnumerable<TypeSpec> arguments, out TypeSpec?[] downcasts)
+		{
 			foreach (var ctor in constructors)
 			{
+				var comparer = new ArgumentsComparer(this, ctor.Arguments.Length);
 				var funcArgs = ctor.Arguments.Select(x => x.Declaring);
-				if (funcArgs.SequenceEqual(arguments, new ArgumentsComparer(this, ctor.Arguments.Length)))
+				if (funcArgs.SequenceEqual(arguments, comparer))
+				{
+					downcasts = comparer.Downcasts;
 					return ctor;
+				}
 			}
 
+			downcasts = [];
 			return null;
 		}
 

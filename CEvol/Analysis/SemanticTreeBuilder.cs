@@ -170,12 +170,6 @@ namespace CEvol.Analysis
 
 		public void EnterToIfBlock(Expression condition)
 		{
-			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
-			{
-				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The expression passed to 'if' must be of type bool", CurrentPosition);
-				return;
-			}
-
 			var childs = new List<ILogicModel>();
 			var statement = new IfStatement(childs, condition, null, null);
 
@@ -187,13 +181,17 @@ namespace CEvol.Analysis
 			var variables = new Dictionary<string, Expression>(block.Variables);
 
 			_blocks.Push(new CodeBlock(statement, childs, variables, currentFunction, currentClass));
+
+			if (CheckStubForError(condition)) return;
+
+			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The expression passed to 'if' must be of type bool", CurrentPosition);
+			}
 		}
 
 		public void EnterToWhileBlock(Expression condition)
 		{
-			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
-				throw new NotImplementedException();
-
 			var childs = new List<ILogicModel>();
 			var statement = new WhileStatement(childs, condition);
 
@@ -205,6 +203,13 @@ namespace CEvol.Analysis
 			var variables = new Dictionary<string, Expression>(block.Variables);
 
 			_blocks.Push(new CodeBlock(statement, childs, variables, currentFunction, currentClass));
+
+			if (CheckStubForError(condition)) return;
+
+			if (condition.ResultTypeSpec.Type != TypeNameToTypeDesc("bool"))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The expression passed to 'while' must be of type bool", CurrentPosition);
+			}
 		}
 
 
@@ -245,7 +250,7 @@ namespace CEvol.Analysis
 				return;
 			}
 
-			if (needCast && (returnResult.ResultTypeSpec.Type is IntegerTypeDesc))
+			if (needCast && (returnResult.ResultTypeSpec.Type is IntegerTypeDesc or FloatTypeDesc))
 			{
 				returnResult = ImplicitIntExtenssion(returnResult, currentFunction.ReturnType);
 			}
@@ -277,7 +282,7 @@ namespace CEvol.Analysis
 			for (int i = 0; i < casts.Length; i++)
 			{
 				TypeSpec? cast = casts[i];
-				if (!cast.HasValue || !(arguments[i].ResultTypeSpec.Type is IntegerTypeDesc)) continue;
+				if (!cast.HasValue || !(arguments[i].ResultTypeSpec.Type is IntegerTypeDesc or FloatTypeDesc)) continue;
 				arguments[i] = ImplicitIntExtenssion(arguments[i], cast.Value);
 			}
 
@@ -330,19 +335,33 @@ namespace CEvol.Analysis
 
 		public Expression CallHeapConstructor(string typeName, Expression[] args)
 		{
-			var typeDesc = _membersFinder.FindType(typeName);
+			if (CheckStubForError(args)) return new StubForErrorExpression();
+
+			var typeDesc = _membersFinder.TryFindType(typeName);
+			if (typeDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", $"The type '{typeName}' was not found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
 			ConstructorDesc? ctorDesc = null;
 			var constructors = _membersFinder.FindConstructors(typeDesc);
 
-			// TODO: сделать автоприведение чисел
-			ctorDesc = _typeAnalyzer.FindSuitableConstructor(constructors, arguments.Select(x => x.ResultTypeSpec));
+			ctorDesc = _typeAnalyzer.FindSuitableConstructor(constructors, arguments.Select(x => x.ResultTypeSpec), out TypeSpec?[] casts);
 
 			if (ctorDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Constructor with specified arguments could not be found", CurrentPosition);
 				return new StubForErrorExpression();
+			}
+
+			for (int i = 0; i < casts.Length; i++)
+			{
+				TypeSpec? cast = casts[i];
+				if (!cast.HasValue || !(arguments[i].ResultTypeSpec.Type is IntegerTypeDesc or FloatTypeDesc)) continue;
+				arguments[i] = ImplicitIntExtenssion(arguments[i], cast.Value);
 			}
 
 			var memory = new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]));
@@ -351,9 +370,23 @@ namespace CEvol.Analysis
 
 		public Expression CreateArrayInHeap(string typeName, Expression arraySize)
 		{
-			// TODO: тут првоерить что arraySize действительно число
-			var typeDesc = _membersFinder.FindType(typeName);
-			return new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]), arraySize);
+			if (CheckStubForError(arraySize)) return new StubForErrorExpression();
+
+			var sizeAccessor = AutoDereferenceIfPointer(arraySize);
+			if (sizeAccessor.ResultTypeSpec.Type is not IntegerTypeDesc)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The array size must be an integer", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			var typeDesc = _membersFinder.TryFindType(typeName);
+			if (typeDesc == null)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", $"The type '{typeName}' was not found", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			return new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]), sizeAccessor);
 		}
 
 		public Expression ClassFieldAccess(Expression instanceGetting, string fieldName)
@@ -373,37 +406,81 @@ namespace CEvol.Analysis
 			return new ArrayCellAccessExpression(arrayGetting, indexGetting);
 		}
 
-		public GetPointerToVarExpression GetPointerToVar(Expression variable)
+		public Expression GetPointerToVar(Expression variable)
 		{
-			// TODO: сделать проверку на что что это реально переменная, а не какая-нибудь хуета, чтобы нельзя было написать ref 1
-			var expr = new GetPointerToVarExpression(variable);
+			if (CheckStubForError(variable)) return new StubForErrorExpression();
 
-			return expr;
+			bool isLValue = variable is VariableAccessExpression
+				or StructureFieldAccessExpression
+				or ArrayCellAccessExpression
+				or PointerDereferenceExpression
+				or VariableCreatingExpression;
+
+			if (!isLValue)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The 'ref' operator can only be applied to a variable or field", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			return new GetPointerToVarExpression(variable);
 		}
 
-		public SimpleBinaryOperationExpression Sum(Expression left, Expression right)
+		public Expression Sum(Expression left, Expression right)
 		{
-			if (!_typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression();
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
 
-			// TODO: нормально здесь определять возвращаемый тип, как и в других банарных операциях (вычитание и тп) ибо мы можем складывать 2 числа разных типов
-			return new SimpleBinaryOperationExpression(BinaryOperation.Sum, leftAccessor, rightAccessor, left.ResultTypeSpec);
+			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Arithmetic operations with floating-point numbers are not supported yet", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			if (!_typeAnalyzer.SoftCheckTypeMatching(leftAccessor.ResultTypeSpec.Type, rightAccessor.ResultTypeSpec.Type))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the '+' operation must be of matching types", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			var resultType = GetWiderType(leftAccessor.ResultTypeSpec, rightAccessor.ResultTypeSpec);
+			leftAccessor = ImplicitIntExtenssion(leftAccessor, resultType);
+			rightAccessor = ImplicitIntExtenssion(rightAccessor, resultType);
+
+			return new SimpleBinaryOperationExpression(BinaryOperation.Sum, leftAccessor, rightAccessor, resultType);
 		}
 
-		public SimpleBinaryOperationExpression Sub(Expression left, Expression right)
+		public Expression Sub(Expression left, Expression right)
 		{
-			if (!_typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, right.ResultTypeSpec.Type)) throw new NotImplementedException();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression();
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.Sub, leftAccessor, rightAccessor, left.ResultTypeSpec);
+			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Arithmetic operations with floating-point numbers are not supported yet", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			if (!_typeAnalyzer.SoftCheckTypeMatching(leftAccessor.ResultTypeSpec.Type, rightAccessor.ResultTypeSpec.Type))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the '-' operation must be of matching types", CurrentPosition);
+				return new StubForErrorExpression();
+			}
+
+			var resultType = GetWiderType(leftAccessor.ResultTypeSpec, rightAccessor.ResultTypeSpec);
+			leftAccessor = ImplicitIntExtenssion(leftAccessor, resultType);
+			rightAccessor = ImplicitIntExtenssion(rightAccessor, resultType);
+
+			return new SimpleBinaryOperationExpression(BinaryOperation.Sub, leftAccessor, rightAccessor, resultType);
 		}
 
-		public CompareOperationExpression Compare(Expression left, Expression right, CompareOperator compareOperator)
+		public Expression Compare(Expression left, Expression right, CompareOperator compareOperator)
 		{
+			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+
 			var uIntType = _membersFinder.FindType("uint");
 			var intType = _membersFinder.FindType("int");
 
@@ -412,30 +489,41 @@ namespace CEvol.Analysis
 
 			var boolTypeSpec = new TypeSpec(TypeNameToTypeDesc("bool"));
 
+			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Comparison of floating-point numbers is not supported yet", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
-			if (_typeAnalyzer.CheckTypeMatching(uIntType, left.ResultTypeSpec.Type, out _)
-				&& _typeAnalyzer.CheckTypeMatching(uIntType, right.ResultTypeSpec.Type, out _))
+			if (_typeAnalyzer.CheckTypeMatching(uIntType, leftAccessor.ResultTypeSpec.Type, out _)
+				&& _typeAnalyzer.CheckTypeMatching(uIntType, rightAccessor.ResultTypeSpec.Type, out _))
 			{
 				//сравнение беззнаковых чисел
 				return new CompareOperationExpression(compareOperator, false, leftAccessor, rightAccessor, boolTypeSpec);
 			}
-			else if (_typeAnalyzer.CheckTypeMatching(intType, left.ResultTypeSpec.Type, out _)
-				&& _typeAnalyzer.CheckTypeMatching(intType, right.ResultTypeSpec.Type, out _))
+			else if (_typeAnalyzer.CheckTypeMatching(intType, leftAccessor.ResultTypeSpec.Type, out _)
+				&& _typeAnalyzer.CheckTypeMatching(intType, rightAccessor.ResultTypeSpec.Type, out _))
 			{
 				//сравнение знаковых чисел
 				return new CompareOperationExpression(compareOperator, true, leftAccessor, rightAccessor, boolTypeSpec);
 			}
 			else
 			{
-				throw new NotImplementedException();
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The compared operands must be of an integer type", CurrentPosition);
+				return new StubForErrorExpression();
 			}
 		}
 
-		public SimpleBinaryOperationExpression LogicalAnd(Expression left, Expression right)
+		public Expression LogicalAnd(Expression left, Expression right)
 		{
+			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+
 			var boolType = _membersFinder.FindType("bool");
 			if (left.ResultTypeSpec.Type != boolType || right.ResultTypeSpec.Type != boolType)
-				throw new NotImplementedException();
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of '&&' must be of type bool", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
@@ -455,14 +543,19 @@ namespace CEvol.Analysis
 		//	throw new NotImplementedException();
 		//}
 
-		private SimpleBinaryOperationExpression BitOperationPrepeare(BinaryOperation operation, Expression left, Expression right)
+		private Expression BitOperationPrepeare(BinaryOperation operation, Expression left, Expression right)
 		{
-			var boolType = _membersFinder.FindType("bool");
-			var intType = _membersFinder.FindType("int");
+			if (CheckStubForError(left, right)) return new StubForErrorExpression();
 
-			if (left.ResultTypeSpec.Type != right.ResultTypeSpec.Type ||
-				(left.ResultTypeSpec.Type != boolType && _typeAnalyzer.SoftCheckTypeMatching(left.ResultTypeSpec.Type, intType)))
-				throw new NotImplementedException();
+			var boolType = _membersFinder.FindType("bool");
+
+			bool isValidType = left.ResultTypeSpec.Type == boolType || left.ResultTypeSpec.Type is IntegerTypeDesc;
+
+			if (left.ResultTypeSpec.Type != right.ResultTypeSpec.Type || !isValidType)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the bit operation must be of matching integer types or bool", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			var leftExpr = AutoDereferenceIfPointer(left);
 			var rightExpr = AutoDereferenceIfPointer(right);
@@ -470,31 +563,36 @@ namespace CEvol.Analysis
 			return new SimpleBinaryOperationExpression(operation, leftExpr, rightExpr, new TypeSpec(left.ResultTypeSpec.Type));
 		}
 
-		public SimpleBinaryOperationExpression BitAnd(Expression leftExpr, Expression rightExpr)
+		public Expression BitAnd(Expression leftExpr, Expression rightExpr)
 		{
 			return BitOperationPrepeare(BinaryOperation.BitAnd, leftExpr, rightExpr);
 		}
 
-		public SimpleBinaryOperationExpression BitXor(Expression leftExpr, Expression rightExpr)
+		public Expression BitXor(Expression leftExpr, Expression rightExpr)
 		{
 			return BitOperationPrepeare(BinaryOperation.BitXor, leftExpr, rightExpr);
 		}
 
-		public SimpleBinaryOperationExpression BitOr(Expression leftExpr, Expression rightExpr)
+		public Expression BitOr(Expression leftExpr, Expression rightExpr)
 		{
 			return BitOperationPrepeare(BinaryOperation.BitOr, leftExpr, rightExpr);
 		}
 
-		public NotExpression BitNot(Expression expr)
+		public Expression BitNot(Expression expr)
 		{
+			if (CheckStubForError(expr)) return new StubForErrorExpression();
+
 			var boolType = _membersFinder.FindType("bool");
-			var intType = _membersFinder.FindType("int");
-			if (expr.ResultTypeSpec.Type != boolType && _typeAnalyzer.SoftCheckTypeMatching(expr.ResultTypeSpec.Type, intType))
-				throw new NotImplementedException();
+
+			if (expr.ResultTypeSpec.Type != boolType && expr.ResultTypeSpec.Type is not IntegerTypeDesc)
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The '~' operator requires an integer or bool operand", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			var accessor = AutoDereferenceIfPointer(expr);
 
-			return new NotExpression(expr);
+			return new NotExpression(accessor);
 		}
 
 		public Expression CreateInt(BigInteger num)
@@ -527,7 +625,11 @@ namespace CEvol.Analysis
 		public Expression CreateLocalVariable(string name, TypeSpec declaring)
 		{
 			CodeBlock block = _blocks.Peek();
-			if (block.Variables.ContainsKey(name)) throw new NotImplementedException();
+			if (block.Variables.ContainsKey(name))
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A variable with that name is already declared in this block", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			var varExpr = new VariableCreatingExpression(name, declaring);
 			block.Variables[name] = new VariableAccessExpression(name, declaring);
@@ -540,7 +642,10 @@ namespace CEvol.Analysis
 			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression();
 
 			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type, out bool needCast))
-				throw new NotImplementedException();
+			{
+				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Cannot assign a value of the specified type", CurrentPosition);
+				return new StubForErrorExpression();
+			}
 
 			// TODO: вынести это в какую-нибудь константу или прямо в класс занести, чтобы везде такую хуню не писать
 			if (varExpr.ResultTypeSpec.IsRef && !expr.ResultTypeSpec.IsRef)
@@ -551,18 +656,23 @@ namespace CEvol.Analysis
 			{
 				if (!assignQualifier.HasValue)
 				{
-					throw new NotImplementedException(); // TODO: разрешить это в usafe контексте
+					if (!UnsafeMode)
+					{
+						_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Reassignment of a reference without a 'ref' qualifier requires an unsafe context", CurrentPosition);
+						return new StubForErrorExpression();
+					}
 
 					expr = new PointerDereferenceExpression(expr);
 					varExpr = new PointerDereferenceExpression(varExpr);
 				}
-				else
+				else if (assignQualifier.Value.Kind != QKind.Reference)
 				{
-					if (assignQualifier.Value.Kind != QKind.Reference) throw new NotImplementedException();
+					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The assignment qualifier must be 'ref'", CurrentPosition);
+					return new StubForErrorExpression();
 				}
 			}
 
-			if (needCast && (expr.ResultTypeSpec.Type is IntegerTypeDesc))
+			if (needCast && (expr.ResultTypeSpec.Type is IntegerTypeDesc or FloatTypeDesc))
 			{
 				expr = ImplicitIntExtenssion(expr, varExpr.ResultTypeSpec);
 			}
@@ -707,7 +817,14 @@ namespace CEvol.Analysis
 		/// <returns></returns>
 		private Expression ImplicitIntExtenssion(Expression expr, TypeSpec resultType)
 		{
+			if (expr.ResultTypeSpec.Type == resultType.Type) return expr;
+
 			var doubleType = _membersFinder.FindType("double");
+
+			if (expr.ResultTypeSpec.Type is FloatTypeDesc && resultType.Type is FloatTypeDesc)
+			{
+				return new FloatToFloatExpression(expr, resultType);
+			}
 
 			bool isSigned = IsSignedInteger(expr.ResultTypeSpec);
 			bool resultTypeIsFloat = _typeAnalyzer.CheckTypeMatching(resultType.Type, doubleType, out _);
@@ -722,9 +839,19 @@ namespace CEvol.Analysis
 			}
 		}
 
+		private TypeSpec GetWiderType(TypeSpec first, TypeSpec second)
+		{
+			return _typeAnalyzer.CheckTypeMatching(first.Type, second.Type, out _) ? first : second;
+		}
+
 		private TypeDesc TypeNameToTypeDesc(string typeName)
 		{
 			return _membersFinder.FindType(typeName);
+		}
+
+		public void ReportError(string message)
+		{
+			_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", message, CurrentPosition);
 		}
 
 		private bool CheckStubForError(params Expression[] expressions)
