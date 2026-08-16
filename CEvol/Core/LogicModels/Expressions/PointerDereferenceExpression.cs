@@ -10,7 +10,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression Target;
 
-		public PointerDereferenceExpression(Expression target) : base(RemovePointerQualifier(target.ResultTypeSpec))
+		public PointerDereferenceExpression(Expression target, PositionInSources pos) : base(RemovePointerQualifier(target.ResultTypeSpec), pos)
 		{
 			Target = target;
 		}

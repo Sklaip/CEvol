@@ -5,5 +5,5 @@ using System.Text;
 
 namespace CEvol.Core.LogicModels.Expressions
 {
-	public class SimpleTypeExpression(TypeSpec resultTypeSpec) : Expression(resultTypeSpec);
+	public class SimpleTypeExpression(TypeSpec resultTypeSpec, PositionInSources pos) : Expression(resultTypeSpec, pos);
 }

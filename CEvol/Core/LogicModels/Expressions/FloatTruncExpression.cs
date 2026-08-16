@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression NumGetting;
 
-		public FloatTruncExpression(Expression numGetting, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public FloatTruncExpression(Expression numGetting, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			NumGetting = numGetting;
 		}

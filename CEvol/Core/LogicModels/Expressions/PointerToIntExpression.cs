@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression PointerGetting;
 
-		public PointerToIntExpression(Expression pointerGetting, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public PointerToIntExpression(Expression pointerGetting, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			PointerGetting = pointerGetting;
 		}

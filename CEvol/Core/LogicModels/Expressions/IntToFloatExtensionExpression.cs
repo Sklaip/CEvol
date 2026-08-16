@@ -10,7 +10,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly Expression NumGetting;
 		public readonly bool IsSigned;
 
-		public IntToFloatExtensionExpression(Expression numGetting, bool isSigned, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public IntToFloatExtensionExpression(Expression numGetting, bool isSigned, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			NumGetting = numGetting;
 			IsSigned = isSigned;

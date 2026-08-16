@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly byte[] Array;
 
-		public GlobalArrayExpression(byte[] array, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public GlobalArrayExpression(byte[] array, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			Array = array;
 		}

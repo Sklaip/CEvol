@@ -56,7 +56,7 @@ namespace CEvol.Analysis
 		{
 			_membersFinder.AddUsing(nameSpace);
 			var childs = new List<ILogicModel>();
-			var statement = new NamespaceStatement(nameSpace, childs);
+			var statement = new NamespaceStatement(nameSpace, childs, CurrentPosition);
 
 			_blocks.Push(new CodeBlock(statement, childs, [], null, null));
 		}
@@ -73,7 +73,7 @@ namespace CEvol.Analysis
 		{
 			var typeDesc = _membersFinder.FindType(className);
 			var childs = new List<ILogicModel>();
-			var statement = new ClassStatement(typeDesc, childs);
+			var statement = new ClassStatement(typeDesc, childs, CurrentPosition);
 
 			CodeBlock block = _blocks.Peek();
 			block.StatementChilds.Add(statement);
@@ -117,7 +117,7 @@ namespace CEvol.Analysis
 			}
 
 			var childs = new List<ILogicModel>();
-			var statement = new FunctionStatement(funcDesc, childs);
+			var statement = new FunctionStatement(funcDesc, childs, CurrentPosition);
 
 			block.StatementChilds.Add(statement);
 
@@ -125,7 +125,7 @@ namespace CEvol.Analysis
 
 			foreach (var param in parameters)
 			{
-				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type);
+				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type, CurrentPosition);
 			}
 
 			_blocks.Push(new CodeBlock(statement, childs, variables, statement, currentClass));
@@ -154,7 +154,7 @@ namespace CEvol.Analysis
 			}
 
 			var childs = new List<ILogicModel>();
-			var statement = new ConstructorStatement(ctorDesc, childs, new TypeSpec(_membersFinder.FindType("void")));
+			var statement = new ConstructorStatement(ctorDesc, childs, new TypeSpec(_membersFinder.FindType("void")), CurrentPosition);
 
 			block.StatementChilds.Add(statement);
 
@@ -162,7 +162,7 @@ namespace CEvol.Analysis
 
 			foreach (var param in parameters)
 			{
-				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type);
+				variables[param.Name] = new VariableAccessExpression(param.Name, param.Type, CurrentPosition);
 			}
 
 			_blocks.Push(new CodeBlock(statement, childs, variables, statement, currentClass));
@@ -171,7 +171,7 @@ namespace CEvol.Analysis
 		public void EnterToIfBlock(Expression condition)
 		{
 			var childs = new List<ILogicModel>();
-			var statement = new IfStatement(childs, condition, null, null);
+			var statement = new IfStatement(childs, condition, null, null, CurrentPosition);
 
 			CodeBlock block = _blocks.Peek();
 			block.StatementChilds.Add(statement);
@@ -193,7 +193,7 @@ namespace CEvol.Analysis
 		public void EnterToWhileBlock(Expression condition)
 		{
 			var childs = new List<ILogicModel>();
-			var statement = new WhileStatement(childs, condition);
+			var statement = new WhileStatement(childs, condition, CurrentPosition);
 
 			CodeBlock block = _blocks.Peek();
 			block.StatementChilds.Add(statement);
@@ -223,7 +223,7 @@ namespace CEvol.Analysis
 				var voidType = _membersFinder.FindType("void");
 				if (fnStatement.ReturnType.Type == voidType)
 				{
-					block.StatementChilds.Add(new ReturnStatement(new SimpleTypeExpression(new TypeSpec(voidType))));
+					block.StatementChilds.Add(new ReturnStatement(new SimpleTypeExpression(new TypeSpec(voidType), CurrentPosition), CurrentPosition));
 				}
 			}
 
@@ -255,12 +255,12 @@ namespace CEvol.Analysis
 				returnResult = ImplicitIntExtenssion(returnResult, currentFunction.ReturnType);
 			}
 
-			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult));
+			_blocks.Peek().StatementChilds.Add(new ReturnStatement(returnResult, CurrentPosition));
 		}
 
 		public Expression CallFunction(string name, Expression[] args)
 		{
-			if (CheckStubForError(args)) return new StubForErrorExpression();
+			if (CheckStubForError(args)) return new StubForErrorExpression(CurrentPosition);
 
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
@@ -268,7 +268,7 @@ namespace CEvol.Analysis
 			if (functions == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A function with that name was not found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			FuncDesc? funcDesc = _typeAnalyzer.FindSuitableFunction(functions, arguments.Select(x => x.ResultTypeSpec), out TypeSpec?[] casts);
@@ -276,7 +276,7 @@ namespace CEvol.Analysis
 			if (funcDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			for (int i = 0; i < casts.Length; i++)
@@ -286,12 +286,12 @@ namespace CEvol.Analysis
 				arguments[i] = ImplicitIntExtenssion(arguments[i], cast.Value);
 			}
 
-			return new CallFunctionExpression(arguments, funcDesc);
+			return new CallFunctionExpression(arguments, funcDesc, CurrentPosition);
 		}
 
 		public Expression CallClassMethod(string name, Expression instanceGetting, Expression[] args)
 		{
-			if (CheckStubForError(args) || CheckStubForError(instanceGetting)) return new StubForErrorExpression();
+			if (CheckStubForError(args) || CheckStubForError(instanceGetting)) return new StubForErrorExpression(CurrentPosition);
 
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
 
@@ -300,7 +300,7 @@ namespace CEvol.Analysis
 			if (func == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A method with that name was not found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var funcDesc = _typeAnalyzer.FindSuitableFunction(func, arguments.Select(x => x.ResultTypeSpec), out TypeSpec?[] casts);
@@ -308,11 +308,11 @@ namespace CEvol.Analysis
 			if (funcDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Function overload with specified arguments could not be found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			Expression[] realArgs = new Expression[arguments.Length + 1];
-			realArgs[0] = instanceGetting.ResultTypeSpec.IsRef ? instanceGetting : new GetPointerToVarExpression(instanceGetting);
+			realArgs[0] = instanceGetting.ResultTypeSpec.IsRef ? instanceGetting : new GetPointerToVarExpression(instanceGetting, CurrentPosition);
 
 			for (int i = 1; i <= arguments.Length; i++)
 			{
@@ -330,18 +330,18 @@ namespace CEvol.Analysis
 				}
 			}
 
-			return new CallFunctionExpression(realArgs, funcDesc);
+			return new CallFunctionExpression(realArgs, funcDesc, CurrentPosition);
 		}
 
 		public Expression CallHeapConstructor(string typeName, Expression[] args)
 		{
-			if (CheckStubForError(args)) return new StubForErrorExpression();
+			if (CheckStubForError(args)) return new StubForErrorExpression(CurrentPosition);
 
 			var typeDesc = _membersFinder.TryFindType(typeName);
 			if (typeDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", $"The type '{typeName}' was not found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var arguments = args.Select(AutoDereferenceIfPointer).ToArray();
@@ -354,7 +354,7 @@ namespace CEvol.Analysis
 			if (ctorDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Constructor with specified arguments could not be found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			for (int i = 0; i < casts.Length; i++)
@@ -364,29 +364,29 @@ namespace CEvol.Analysis
 				arguments[i] = ImplicitIntExtenssion(arguments[i], cast.Value);
 			}
 
-			var memory = new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]));
-			return new CallConstructorExpression(memory, ctorDesc, arguments);
+			var memory = new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference)]), pos: CurrentPosition);
+			return new CallConstructorExpression(memory, ctorDesc, arguments, CurrentPosition);
 		}
 
 		public Expression CreateArrayInHeap(string typeName, Expression arraySize)
 		{
-			if (CheckStubForError(arraySize)) return new StubForErrorExpression();
+			if (CheckStubForError(arraySize)) return new StubForErrorExpression(CurrentPosition);
 
 			var sizeAccessor = AutoDereferenceIfPointer(arraySize);
 			if (sizeAccessor.ResultTypeSpec.Type is not IntegerTypeDesc)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The array size must be an integer", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var typeDesc = _membersFinder.TryFindType(typeName);
 			if (typeDesc == null)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", $"The type '{typeName}' was not found", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
-			return new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]), sizeAccessor);
+			return new AllocateHeapMemoryToType(new TypeSpec(typeDesc, [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]), sizeAccessor, CurrentPosition);
 		}
 
 		public Expression ClassFieldAccess(Expression instanceGetting, string fieldName)
@@ -394,21 +394,21 @@ namespace CEvol.Analysis
 			if (!instanceGetting.ResultTypeSpec.Type.Variables.TryGetValue(fieldName, out VariableDesc variable))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The class field does not exist", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
-			return new StructureFieldAccessExpression(variable.Order, instanceGetting.ResultTypeSpec.IsRef, instanceGetting, variable.Declaring);
+			return new StructureFieldAccessExpression(variable.Order, instanceGetting.ResultTypeSpec.IsRef, instanceGetting, variable.Declaring, CurrentPosition);
 		}
 
 		public ArrayCellAccessExpression ArrayCellAccess(Expression arrayGetting, Expression indexGetting)
 		{
 			// TODO: сделать проверки на типы
-			return new ArrayCellAccessExpression(arrayGetting, indexGetting);
+			return new ArrayCellAccessExpression(arrayGetting, indexGetting, CurrentPosition);
 		}
 
 		public Expression GetPointerToVar(Expression variable)
 		{
-			if (CheckStubForError(variable)) return new StubForErrorExpression();
+			if (CheckStubForError(variable)) return new StubForErrorExpression(CurrentPosition);
 
 			bool isLValue = variable is VariableAccessExpression
 				or StructureFieldAccessExpression
@@ -419,15 +419,15 @@ namespace CEvol.Analysis
 			if (!isLValue)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The 'ref' operator can only be applied to a variable or field", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
-			return new GetPointerToVarExpression(variable);
+			return new GetPointerToVarExpression(variable, CurrentPosition);
 		}
 
 		public Expression Sum(Expression left, Expression right)
 		{
-			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression(CurrentPosition);
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
@@ -435,25 +435,25 @@ namespace CEvol.Analysis
 			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Arithmetic operations with floating-point numbers are not supported yet", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			if (!_typeAnalyzer.SoftCheckTypeMatching(leftAccessor.ResultTypeSpec.Type, rightAccessor.ResultTypeSpec.Type))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the '+' operation must be of matching types", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var resultType = GetWiderType(leftAccessor.ResultTypeSpec, rightAccessor.ResultTypeSpec);
 			leftAccessor = ImplicitIntExtenssion(leftAccessor, resultType);
 			rightAccessor = ImplicitIntExtenssion(rightAccessor, resultType);
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.Sum, leftAccessor, rightAccessor, resultType);
+			return new SimpleBinaryOperationExpression(BinaryOperation.Sum, leftAccessor, rightAccessor, resultType, CurrentPosition);
 		}
 
 		public Expression Sub(Expression left, Expression right)
 		{
-			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression(CurrentPosition);
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
@@ -461,25 +461,25 @@ namespace CEvol.Analysis
 			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Arithmetic operations with floating-point numbers are not supported yet", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			if (!_typeAnalyzer.SoftCheckTypeMatching(leftAccessor.ResultTypeSpec.Type, rightAccessor.ResultTypeSpec.Type))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the '-' operation must be of matching types", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var resultType = GetWiderType(leftAccessor.ResultTypeSpec, rightAccessor.ResultTypeSpec);
 			leftAccessor = ImplicitIntExtenssion(leftAccessor, resultType);
 			rightAccessor = ImplicitIntExtenssion(rightAccessor, resultType);
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.Sub, leftAccessor, rightAccessor, resultType);
+			return new SimpleBinaryOperationExpression(BinaryOperation.Sub, leftAccessor, rightAccessor, resultType, CurrentPosition);
 		}
 
 		public Expression Compare(Expression left, Expression right, CompareOperator compareOperator)
 		{
-			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression(CurrentPosition);
 
 			var uIntType = _membersFinder.FindType("uint");
 			var intType = _membersFinder.FindType("int");
@@ -492,43 +492,43 @@ namespace CEvol.Analysis
 			if (leftAccessor.ResultTypeSpec.Type is FloatTypeDesc || rightAccessor.ResultTypeSpec.Type is FloatTypeDesc)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Comparison of floating-point numbers is not supported yet", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			if (_typeAnalyzer.CheckTypeMatching(uIntType, leftAccessor.ResultTypeSpec.Type, out _)
 				&& _typeAnalyzer.CheckTypeMatching(uIntType, rightAccessor.ResultTypeSpec.Type, out _))
 			{
 				//сравнение беззнаковых чисел
-				return new CompareOperationExpression(compareOperator, false, leftAccessor, rightAccessor, boolTypeSpec);
+				return new CompareOperationExpression(compareOperator, false, leftAccessor, rightAccessor, boolTypeSpec, CurrentPosition);
 			}
 			else if (_typeAnalyzer.CheckTypeMatching(intType, leftAccessor.ResultTypeSpec.Type, out _)
 				&& _typeAnalyzer.CheckTypeMatching(intType, rightAccessor.ResultTypeSpec.Type, out _))
 			{
 				//сравнение знаковых чисел
-				return new CompareOperationExpression(compareOperator, true, leftAccessor, rightAccessor, boolTypeSpec);
+				return new CompareOperationExpression(compareOperator, true, leftAccessor, rightAccessor, boolTypeSpec, CurrentPosition);
 			}
 			else
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The compared operands must be of an integer type", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 		}
 
 		public Expression LogicalAnd(Expression left, Expression right)
 		{
-			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression(CurrentPosition);
 
 			var boolType = _membersFinder.FindType("bool");
 			if (left.ResultTypeSpec.Type != boolType || right.ResultTypeSpec.Type != boolType)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of '&&' must be of type bool", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var leftAccessor = AutoDereferenceIfPointer(left);
 			var rightAccessor = AutoDereferenceIfPointer(right);
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.LogicalAnd, leftAccessor, rightAccessor, new TypeSpec(boolType));
+			return new SimpleBinaryOperationExpression(BinaryOperation.LogicalAnd, leftAccessor, rightAccessor, new TypeSpec(boolType), CurrentPosition);
 		}
 
 		//public Expr LogicalOr(Expr left, Expr right)
@@ -545,7 +545,7 @@ namespace CEvol.Analysis
 
 		private Expression BitOperationPrepeare(BinaryOperation operation, Expression left, Expression right)
 		{
-			if (CheckStubForError(left, right)) return new StubForErrorExpression();
+			if (CheckStubForError(left, right)) return new StubForErrorExpression(CurrentPosition);
 
 			var boolType = _membersFinder.FindType("bool");
 
@@ -554,13 +554,13 @@ namespace CEvol.Analysis
 			if (left.ResultTypeSpec.Type != right.ResultTypeSpec.Type || !isValidType)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The operands of the bit operation must be of matching integer types or bool", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var leftExpr = AutoDereferenceIfPointer(left);
 			var rightExpr = AutoDereferenceIfPointer(right);
 
-			return new SimpleBinaryOperationExpression(operation, leftExpr, rightExpr, new TypeSpec(left.ResultTypeSpec.Type));
+			return new SimpleBinaryOperationExpression(operation, leftExpr, rightExpr, new TypeSpec(left.ResultTypeSpec.Type), CurrentPosition);
 		}
 
 		public Expression BitAnd(Expression leftExpr, Expression rightExpr)
@@ -580,34 +580,34 @@ namespace CEvol.Analysis
 
 		public Expression BitNot(Expression expr)
 		{
-			if (CheckStubForError(expr)) return new StubForErrorExpression();
+			if (CheckStubForError(expr)) return new StubForErrorExpression(CurrentPosition);
 
 			var boolType = _membersFinder.FindType("bool");
 
 			if (expr.ResultTypeSpec.Type != boolType && expr.ResultTypeSpec.Type is not IntegerTypeDesc)
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The '~' operator requires an integer or bool operand", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			var accessor = AutoDereferenceIfPointer(expr);
 
-			return new NotExpression(accessor);
+			return new NotExpression(accessor, CurrentPosition);
 		}
 
 		public Expression CreateInt(BigInteger num)
 		{
-			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("int")), BaseTypes.Int, num);
+			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("int")), BaseTypes.Int, num, CurrentPosition);
 		}
 
 		public Expression CreateShort(BigInteger num)
 		{
-			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("short")), BaseTypes.Short, num);
+			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("short")), BaseTypes.Short, num, CurrentPosition);
 		}
 
 		public Expression CreateByte(BigInteger num)
 		{
-			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("byte")), BaseTypes.Byte, num);
+			return new NumConstExpression(new TypeSpec(TypeNameToTypeDesc("byte")), BaseTypes.Byte, num, CurrentPosition);
 		}
 
 		public Expression CreateString(string str)
@@ -615,11 +615,11 @@ namespace CEvol.Analysis
 			if (str[0] != '"' || str[str.Length - 1] != '"')
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Ivalid string", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			byte[] strBytes = Encoding.UTF8.GetBytes($"{str.Replace(@"\n", Environment.NewLine)[1..^1]}\0");
-			return new GlobalArrayExpression(strBytes, new TypeSpec(TypeNameToTypeDesc("byte"), [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]));
+			return new GlobalArrayExpression(strBytes, new TypeSpec(TypeNameToTypeDesc("byte"), [new Qualifier(QKind.Reference), new Qualifier(QKind.Array)]), CurrentPosition);
 		}
 
 		public Expression CreateLocalVariable(string name, TypeSpec declaring)
@@ -628,28 +628,28 @@ namespace CEvol.Analysis
 			if (block.Variables.ContainsKey(name))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "A variable with that name is already declared in this block", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
-			var varExpr = new VariableCreatingExpression(name, declaring);
-			block.Variables[name] = new VariableAccessExpression(name, declaring);
+			var varExpr = new VariableCreatingExpression(name, declaring, CurrentPosition);
+			block.Variables[name] = new VariableAccessExpression(name, declaring, CurrentPosition);
 
 			return varExpr;
 		}
 
 		public Expression VariableAssing(Expression varExpr, Expression expr, Qualifier? assignQualifier)
 		{
-			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression();
+			if (CheckStubForError(varExpr, expr)) return new StubForErrorExpression(CurrentPosition);
 
 			if (!_typeAnalyzer.CheckTypeMatching(varExpr.ResultTypeSpec.Type, expr.ResultTypeSpec.Type, out bool needCast))
 			{
 				_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Cannot assign a value of the specified type", CurrentPosition);
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(CurrentPosition);
 			}
 
 			if (varExpr.ResultTypeSpec.IsRef && !expr.ResultTypeSpec.IsRef)
 			{
-				varExpr = new PointerDereferenceExpression(varExpr);
+				varExpr = new PointerDereferenceExpression(varExpr, CurrentPosition);
 			}
 			else if (varExpr.ResultTypeSpec.IsRef && expr.ResultTypeSpec.IsRef)
 			{
@@ -658,16 +658,16 @@ namespace CEvol.Analysis
 					if (!UnsafeMode)
 					{
 						_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Reassignment of a reference without a 'ref' qualifier requires an unsafe context", CurrentPosition);
-						return new StubForErrorExpression();
+						return new StubForErrorExpression(CurrentPosition);
 					}
 
-					expr = new PointerDereferenceExpression(expr);
-					varExpr = new PointerDereferenceExpression(varExpr);
+					expr = new PointerDereferenceExpression(expr, CurrentPosition);
+					varExpr = new PointerDereferenceExpression(varExpr, CurrentPosition);
 				}
 				else if (assignQualifier.Value.Kind != QKind.Reference)
 				{
 					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "The assignment qualifier must be 'ref'", CurrentPosition);
-					return new StubForErrorExpression();
+					return new StubForErrorExpression(CurrentPosition);
 				}
 			}
 
@@ -676,15 +676,15 @@ namespace CEvol.Analysis
 				expr = ImplicitIntExtenssion(expr, varExpr.ResultTypeSpec);
 			}
 
-			return new SimpleBinaryOperationExpression(BinaryOperation.Assing, varExpr, expr, varExpr.ResultTypeSpec);
+			return new SimpleBinaryOperationExpression(BinaryOperation.Assing, varExpr, expr, varExpr.ResultTypeSpec, CurrentPosition);
 		}
 
 		public Expression AutoDereferenceIfPointer(Expression expr)
 		{
-			if (CheckStubForError(expr)) return new StubForErrorExpression();
+			if (CheckStubForError(expr)) return new StubForErrorExpression(CurrentPosition);
 
 			if (!expr.ResultTypeSpec.IsRef || expr is GetPointerToVarExpression || expr is DoNotAutoDereferenceIfPointerExpression) return expr;
-			return new PointerDereferenceExpression(expr);
+			return new PointerDereferenceExpression(expr, CurrentPosition);
 		}
 
 		public Expression VariableAccess(string name)
@@ -696,19 +696,19 @@ namespace CEvol.Analysis
 				if (currentClass == null)
 				{
 					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "No variable with that name was found", CurrentPosition);
-					return new StubForErrorExpression();
+					return new StubForErrorExpression(CurrentPosition);
 				}
 
 				if (!currentClass.Variables.TryGetValue(name, out var field))
 				{
 					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "No variable or field with that name was found", CurrentPosition);
-					return new StubForErrorExpression();
+					return new StubForErrorExpression(CurrentPosition);
 				}
 
 				TypeSpec fieldDeclaring = field.Declaring;
 
-				var thisGetting = new AppealToThisExpression(currentClass);
-				return new StructureFieldAccessExpression(field.Order, true, thisGetting, fieldDeclaring);
+				var thisGetting = new AppealToThisExpression(currentClass, CurrentPosition);
+				return new StructureFieldAccessExpression(field.Order, true, thisGetting, fieldDeclaring, CurrentPosition);
 			}
 
 			return value;
@@ -716,26 +716,26 @@ namespace CEvol.Analysis
 
 		public Expression SetRefQualifier(Expression expr)
 		{
-			if (CheckStubForError(expr)) return new StubForErrorExpression();
-			return new DoNotAutoDereferenceIfPointerExpression(expr);
+			if (CheckStubForError(expr)) return new StubForErrorExpression(CurrentPosition);
+			return new DoNotAutoDereferenceIfPointerExpression(expr, CurrentPosition);
 		}
 
 		public Expression TypeCast(Expression expr, TypeSpec toType)
 		{
-			if (CheckStubForError(expr)) return new StubForErrorExpression();
+			if (CheckStubForError(expr)) return new StubForErrorExpression(CurrentPosition);
 
 			if (!UnsafeMode)
 			{
 				if (toType.ArrayExists)
 				{
 					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Casting array types is prohibited in a safe context", CurrentPosition);
-					return new StubForErrorExpression();
+					return new StubForErrorExpression(CurrentPosition);
 				}
 
 				if (!toType.QualifiersEquals(expr.ResultTypeSpec) || !_typeAnalyzer.SoftCheckTypeMatching(expr.ResultTypeSpec.Type, toType.Type))
 				{
 					_errorsBag.AddError(COMPILATION_LAYER, "DOLBAEB", "Implicit casting of heterogeneous types is prohibited in a safe context", CurrentPosition);
-					return new StubForErrorExpression();
+					return new StubForErrorExpression(CurrentPosition);
 				}
 			}
 
@@ -756,46 +756,46 @@ namespace CEvol.Analysis
 			bool toIsFloat = toDesc is FloatTypeDesc;
 
 			if (fromIsPointer && toIsPointer)
-				return new CastExpression(expr, toType);
+				return new CastExpression(expr, toType, CurrentPosition);
 
 			if (fromIsInt && toIsPointer)
-				return new IntToPointerExpression(expr, toType);
+				return new IntToPointerExpression(expr, toType, CurrentPosition);
 
 			if (fromIsPointer && toIsInt)
-				return new PointerToIntExpression(expr, toType);
+				return new PointerToIntExpression(expr, toType, CurrentPosition);
 
 			if (fromIsInt && toIsFloat)
-				return new IntToFloatExtensionExpression(expr, IsSignedInteger(fromSpec), toType);
+				return new IntToFloatExtensionExpression(expr, IsSignedInteger(fromSpec), toType, CurrentPosition);
 
 			if (fromIsFloat && toIsInt)
-				return new FloatToIntExpression(expr, IsSignedInteger(toType), toType);
+				return new FloatToIntExpression(expr, IsSignedInteger(toType), toType, CurrentPosition);
 
 			if (fromIsInt && toIsInt)
 			{
 				if (fromDesc == toDesc)
-					return new CastExpression(expr, toType); // TODO: тут должно быть сообщение что приведение бессмысленно
+					return new CastExpression(expr, toType, CurrentPosition); // TODO: тут должно быть сообщение что приведение бессмысленно
 
 				if (_typeAnalyzer.CheckTypeMatching(toDesc, fromDesc, out _))
-					return new IntToIntExtensionExpression(expr, IsSignedInteger(fromSpec), toType);
+					return new IntToIntExtensionExpression(expr, IsSignedInteger(fromSpec), toType, CurrentPosition);
 
 				if (_typeAnalyzer.CheckTypeMatching(fromDesc, toDesc, out _))
-					return new IntTruncExpression(expr, toType);
+					return new IntTruncExpression(expr, toType, CurrentPosition);
 
 			}
 
 			if (fromIsFloat && toIsFloat)
 			{
 				if (fromDesc == toDesc)
-					return new CastExpression(expr, toType);
+					return new CastExpression(expr, toType, CurrentPosition);
 
 				if (_typeAnalyzer.CheckTypeMatching(toDesc, fromDesc, out _))
-					return new FloatToFloatExpression(expr, toType);
+					return new FloatToFloatExpression(expr, toType, CurrentPosition);
 
 				if (_typeAnalyzer.CheckTypeMatching(fromDesc, toDesc, out _))
-					return new FloatTruncExpression(expr, toType);
+					return new FloatTruncExpression(expr, toType, CurrentPosition);
 			}
 
-			return new ReinterpretCastExpression(expr, toType);
+			return new ReinterpretCastExpression(expr, toType, CurrentPosition);
 		}
 
 		private bool IsSignedInteger(TypeSpec typeSpec)
@@ -821,7 +821,7 @@ namespace CEvol.Analysis
 
 			if (expr.ResultTypeSpec.Type is FloatTypeDesc && resultType.Type is FloatTypeDesc)
 			{
-				return new FloatToFloatExpression(expr, resultType);
+				return new FloatToFloatExpression(expr, resultType, CurrentPosition);
 			}
 
 			bool isSigned = IsSignedInteger(expr.ResultTypeSpec);
@@ -829,11 +829,11 @@ namespace CEvol.Analysis
 
 			if (resultTypeIsFloat)
 			{
-				return new IntToFloatExtensionExpression(expr, isSigned, resultType);
+				return new IntToFloatExtensionExpression(expr, isSigned, resultType, CurrentPosition);
 			}
 			else
 			{
-				return new IntToIntExtensionExpression(expr, isSigned, resultType);
+				return new IntToIntExtensionExpression(expr, isSigned, resultType, CurrentPosition);
 			}
 		}
 

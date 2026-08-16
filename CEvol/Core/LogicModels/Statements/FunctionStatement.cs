@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Statements
 	{
 		public readonly FuncDesc FunctionSignature;
 
-		public FunctionStatement(FuncDesc functionSignature, IReadOnlyCollection<ILogicModel> childs) : base(childs)
+		public FunctionStatement(FuncDesc functionSignature, IReadOnlyCollection<ILogicModel> childs, PositionInSources pos) : base(childs, pos)
 		{
 			FunctionSignature = functionSignature;
 		}

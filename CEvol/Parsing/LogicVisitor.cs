@@ -167,8 +167,9 @@ namespace CEvol.Parsing
 			var typeSpec_ = ParseTypeSpec(ctx.typeSpec());
 			if (typeSpec_ == null)
 			{
+				var errorPos = _semanticAnalyzer.CurrentPosition;
 				_semanticAnalyzer.CurrentPosition = lastPos;
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(errorPos);
 			}
 
 			var typeSpec = typeSpec_.Value;
@@ -613,8 +614,9 @@ namespace CEvol.Parsing
 			var typeSpec = ParseTypeSpec(context.typeSpec());
 			if (typeSpec == null)
 			{
+				var errorPos = _semanticAnalyzer.CurrentPosition;
 				_semanticAnalyzer.CurrentPosition = lastPos;
-				return new StubForErrorExpression();
+				return new StubForErrorExpression(errorPos);
 			}
 
 			var res = _semanticAnalyzer.TypeCast(expression, typeSpec.Value);

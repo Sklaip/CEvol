@@ -11,7 +11,7 @@ namespace CEvol.Core.LogicModels.Statements
 		public readonly ConstructorDesc ConstuctorSignature;
 		private readonly TypeSpec _voidType;
 
-		public ConstructorStatement(ConstructorDesc constructorSignature, IReadOnlyCollection<ILogicModel> childs, TypeSpec voidType) : base(childs)
+		public ConstructorStatement(ConstructorDesc constructorSignature, IReadOnlyCollection<ILogicModel> childs, TypeSpec voidType, PositionInSources pos) : base(childs, pos)
 		{
 			ConstuctorSignature = constructorSignature;
 			_voidType = voidType;

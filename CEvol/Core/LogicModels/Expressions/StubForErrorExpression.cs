@@ -7,7 +7,7 @@ namespace CEvol.Core.LogicModels.Expressions
 {
 	internal class StubForErrorExpression : Expression
 	{
-		public StubForErrorExpression() : base(new TypeSpec(new TypeDesc("ERROR", null!)))
+		public StubForErrorExpression(PositionInSources pos) : base(new TypeSpec(new TypeDesc("ERROR", null!)), pos)
 		{
 		}
 	}

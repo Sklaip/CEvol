@@ -97,7 +97,7 @@ namespace CEvol.Core
 			var errorsBag = new ErrorsBag(sourcesMap);
 
 			// 6. Второй проход: Один LogicVisitor на один файл исходного кода
-			var program = new ProgramStatement(); // Корневой агрегатор всех AST элементов
+			var program = new ProgramStatement(default); // Корневой агрегатор всех AST элементов
 
 			foreach (var unit in units)
 			{
@@ -106,6 +106,12 @@ namespace CEvol.Core
 				var statement = logicVisitor.ResultStatement;
 
 				program.AddStatement(statement);
+			}
+
+			if (errorsBag.HasErrors)
+			{
+				Console.WriteLine(errorsBag.BuildErrorsMessage());
+				return;
 			}
 
 			var referencesAnalazer = new ReferencesAnalyzer(errorsBag);

@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Statements
 	{
 		public readonly string NameSpace;
 
-		public NamespaceStatement(string nameSpace, IReadOnlyCollection<ILogicModel> childs) : base(childs)
+		public NamespaceStatement(string nameSpace, IReadOnlyCollection<ILogicModel> childs, PositionInSources pos) : base(childs, pos)
 		{
 			NameSpace = nameSpace;
 		}

@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression CastedExpression;
 
-		public ReinterpretCastExpression(Expression castedExpression, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public ReinterpretCastExpression(Expression castedExpression, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			CastedExpression = castedExpression;
 		}

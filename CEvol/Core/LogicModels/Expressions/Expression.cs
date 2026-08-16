@@ -8,10 +8,12 @@ namespace CEvol.Core.LogicModels.Expressions
 	public abstract class Expression : ILogicModel
 	{
 		public readonly TypeSpec ResultTypeSpec;
+		public readonly PositionInSources Pos;
 
-		protected Expression(TypeSpec resultTypeSpec)
+		protected Expression(TypeSpec resultTypeSpec, PositionInSources pos)
 		{
 			ResultTypeSpec = resultTypeSpec;
+			Pos = pos;
 		}
 	}
 }

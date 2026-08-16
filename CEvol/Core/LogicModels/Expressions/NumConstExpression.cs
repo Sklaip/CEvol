@@ -6,5 +6,5 @@ using System.Text;
 
 namespace CEvol.Core.LogicModels.Expressions
 {
-	public class NumConstExpression(TypeSpec intTypeSpec, BaseTypes intType, BigInteger value) : ConstOperationExpression<BigInteger>(intTypeSpec, intType, value);
+	public class NumConstExpression(TypeSpec intTypeSpec, BaseTypes intType, BigInteger value, PositionInSources pos) : ConstOperationExpression<BigInteger>(intTypeSpec, intType, value, pos);
 }

@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	internal class GetPointerToVarExpression : Expression
 	{
 		public readonly Expression Variable;
-		public GetPointerToVarExpression(Expression variable) : base(PointerTypeSpec(variable.ResultTypeSpec))
+		public GetPointerToVarExpression(Expression variable, PositionInSources pos) : base(PointerTypeSpec(variable.ResultTypeSpec), pos)
 		{
 			Variable = variable;
 		}

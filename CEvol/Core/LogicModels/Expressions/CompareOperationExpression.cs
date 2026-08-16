@@ -12,8 +12,8 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly CompareOperator CompareOperator;
 		public readonly bool IsSigned;
 
-		public CompareOperationExpression(CompareOperator compareOperator, bool isSigned, Expression leftExpression, Expression rightExpression, TypeSpec resultTypeSpec)
-			: base(resultTypeSpec)
+		public CompareOperationExpression(CompareOperator compareOperator, bool isSigned, Expression leftExpression, Expression rightExpression, TypeSpec resultTypeSpec, PositionInSources pos)
+			: base(resultTypeSpec, pos)
 		{
 			LeftExpression = leftExpression;
 			RightExpression = rightExpression;

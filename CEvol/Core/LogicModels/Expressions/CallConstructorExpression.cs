@@ -13,7 +13,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly Expression[] Arguments;
 
 
-		public CallConstructorExpression(Expression memoryGetting, ConstructorDesc constructor, Expression[] arguments) : base(memoryGetting.ResultTypeSpec)
+		public CallConstructorExpression(Expression memoryGetting, ConstructorDesc constructor, Expression[] arguments, PositionInSources pos) : base(memoryGetting.ResultTypeSpec, pos)
 		{
 			MemoryGetting = memoryGetting;
 			Constructor = constructor;

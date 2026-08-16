@@ -10,7 +10,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly Expression ArrayGetting;
 		public readonly Expression IndexGetting;
 
-		public ArrayCellAccessExpression(Expression arrayGetting, Expression indexGetting) : base(new TypeSpec(arrayGetting.ResultTypeSpec.Type))
+		public ArrayCellAccessExpression(Expression arrayGetting, Expression indexGetting, PositionInSources pos) : base(new TypeSpec(arrayGetting.ResultTypeSpec.Type), pos)
 		{
 			ArrayGetting = arrayGetting;
 			IndexGetting = indexGetting;

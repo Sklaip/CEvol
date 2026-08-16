@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public Expression Expression { get; }
 
-		public DoNotAutoDereferenceIfPointerExpression(Expression expr) : base(expr.ResultTypeSpec)
+		public DoNotAutoDereferenceIfPointerExpression(Expression expr, PositionInSources pos) : base(expr.ResultTypeSpec, pos)
 		{
 			Expression = expr;
 		}

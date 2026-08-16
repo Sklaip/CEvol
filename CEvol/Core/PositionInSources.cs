@@ -4,7 +4,7 @@ using System.Text;
 
 namespace CEvol.Core
 {
-	internal struct PositionInSources
+	public struct PositionInSources
 	{
 		public readonly string SourceFile;
 		public readonly int Line;

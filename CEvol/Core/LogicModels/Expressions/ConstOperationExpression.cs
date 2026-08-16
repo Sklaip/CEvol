@@ -11,7 +11,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly BaseTypes IntType;
 		public TValue Value;
 
-		public ConstOperationExpression(TypeSpec intTypeSpec, BaseTypes intType, TValue value) : base(intTypeSpec)
+		public ConstOperationExpression(TypeSpec intTypeSpec, BaseTypes intType, TValue value, PositionInSources pos) : base(intTypeSpec, pos)
 		{
 			IntType = intType;
 			Value = value;

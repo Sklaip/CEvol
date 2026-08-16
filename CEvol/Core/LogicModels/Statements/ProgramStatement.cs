@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Statements
 	{
 		private readonly List<ILogicModel> _childs;
 
-		public ProgramStatement() : base(new List<ILogicModel>())
+		public ProgramStatement(PositionInSources pos) : base(new List<ILogicModel>(), pos)
 		{
 			_childs = (Childs as List<ILogicModel>)!; // ну и хуета, но да поебать
 		}

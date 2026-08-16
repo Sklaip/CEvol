@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Statements
 	{
 		public readonly Expression Value;
 
-		public ReturnStatement(Expression expr) : base([])
+		public ReturnStatement(Expression expr, PositionInSources pos) : base([], pos)
 		{
 			Value = expr;
 		}

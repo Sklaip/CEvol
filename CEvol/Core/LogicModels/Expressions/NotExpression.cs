@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression Expression;
 
-		public NotExpression(Expression expression) : base(expression.ResultTypeSpec)
+		public NotExpression(Expression expression, PositionInSources pos) : base(expression.ResultTypeSpec, pos)
 		{
 			Expression = expression;
 		}

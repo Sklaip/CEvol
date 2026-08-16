@@ -8,7 +8,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	public class VariableAccessExpression : Expression
 	{
 		public readonly string Name;
-		public VariableAccessExpression(string name, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public VariableAccessExpression(string name, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			Name = name;
 		}

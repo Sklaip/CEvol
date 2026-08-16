@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Expressions
 	{
 		public readonly Expression? Multiper;
 
-		public AllocateHeapMemoryToType(TypeSpec resultTypeSpec, Expression? multiper = null) : base(resultTypeSpec)
+		public AllocateHeapMemoryToType(TypeSpec resultTypeSpec, Expression? multiper = null, PositionInSources pos = default) : base(resultTypeSpec, pos)
 		{
 			Multiper = multiper;
 		}

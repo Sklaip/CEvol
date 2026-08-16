@@ -9,7 +9,7 @@ namespace CEvol.Core.LogicModels.Statements
 	{
 		public readonly Expression Condition;
 
-		public WhileStatement(IReadOnlyCollection<ILogicModel> childs, Expression condition) : base(childs)
+		public WhileStatement(IReadOnlyCollection<ILogicModel> childs, Expression condition, PositionInSources pos) : base(childs, pos)
 		{
 			Condition = condition;
 		}

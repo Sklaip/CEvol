@@ -11,7 +11,7 @@ namespace CEvol.Core.LogicModels.Expressions
 		public readonly Expression StructureGetting;
 		public readonly bool ByRef;
 
-		public StructureFieldAccessExpression(uint filedNum, bool byRef, Expression structureGetting, TypeSpec resultTypeSpec) : base(resultTypeSpec)
+		public StructureFieldAccessExpression(uint filedNum, bool byRef, Expression structureGetting, TypeSpec resultTypeSpec, PositionInSources pos) : base(resultTypeSpec, pos)
 		{
 			FiledNum = filedNum;
 			ByRef = byRef;

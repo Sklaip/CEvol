@@ -31,6 +31,8 @@ namespace CEvol.Analysis.Semantic
 
 	internal class ReferencesAnalyzer : SemanticTreeVisitor<ReferencesData?>
 	{
+		public const string REFERENCES_LAYER = "ReferencesAnalyzer";
+
 		private readonly ErrorsBag _errorsBag;
 		private HashSet<string> _givenRefs = new HashSet<string>();
 
@@ -57,7 +59,7 @@ namespace CEvol.Analysis.Semantic
 				{
 					if (argument.ResultTypeSpec.IsBorrowRef)
 					{
-						throw new NotImplementedException();
+						_errorsBag.AddError(REFERENCES_LAYER, "REF001", "Cannot pass a borrow reference as an owner reference argument", expr.Pos);
 					}
 
 					if (res?.VariableName != null)
@@ -74,7 +76,7 @@ namespace CEvol.Analysis.Semantic
 		{
 			if (_givenRefs.Contains(expr.Name))
 			{
-				throw new NotImplementedException();
+				_errorsBag.AddError(REFERENCES_LAYER, "REF002", $"The variable '{expr.Name}' was already moved and cannot be used", expr.Pos);
 			}
 
 			return new ReferencesData(expr.ResultTypeSpec.IsBorrowRef, expr.ResultTypeSpec.IsOwnerRef, expr.Name);
