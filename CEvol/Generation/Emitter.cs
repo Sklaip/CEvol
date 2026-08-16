@@ -434,16 +434,5 @@ namespace CEvol.Generation
 			if (varDeclaring.QualifiersExists) return _codeGenerator.PointerType;
 			return varDeclaring.Type.TypeRef;
 		}
-
-		private BaseTypes TypeToBaseType(TypeDesc desc)
-		{
-			switch (desc.Name)
-			{
-				case "int": return BaseTypes.Int;
-				case "byte": return BaseTypes.Byte;
-				case "bool": return BaseTypes.Bool;
-				default: throw new NotImplementedException();
-			}
-		}
 	}
 }

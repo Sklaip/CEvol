@@ -15,7 +15,7 @@ accessModifier : PUBLIC | PRIVATE ;
 // Дополнительные модификаторы: static, readonly (в любом количестве и порядке)
 extraModifier : STATIC | READONLY | EXTERN | INFARGS;
 
-qualifier : REF ;
+qualifier : REF | REFB;
 
 // --- Типы данных ---
 

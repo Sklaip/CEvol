@@ -14,6 +14,7 @@ STACK : 'stack';
 CONSTRUCTOR : 'ctor';
 DESTRUCTOR : 'dtor';
 REF : 'ref';
+REFB : 'refb';
 
 // Операторы и знаки
 ASSIGN   : '=';

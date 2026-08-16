@@ -9,7 +9,8 @@ namespace CEvol.Core.MemebersModels
 		public enum QKind
 		{
 			Reference,
-			Array
+			Array,
+			BorrowReference
 		}
 
 		public readonly QKind Kind;
@@ -19,12 +20,20 @@ namespace CEvol.Core.MemebersModels
 			this.Kind = kind;
 		}
 
+		public bool QKindEquals(Qualifier other)
+		{
+			return other.Kind == Kind
+				|| (other.Kind == QKind.Reference && Kind == QKind.BorrowReference)
+				|| (other.Kind == QKind.BorrowReference && Kind == QKind.Reference);
+		}
+
 		public static Qualifier FromString(string str)
 		{
 			switch (str)
 			{
 				case "ref": return new Qualifier(QKind.Reference);
 				case "array": return new Qualifier(QKind.Array);
+				case "refb": return new Qualifier(QKind.BorrowReference);
 				default: throw new NotImplementedException();
 			}
 		}

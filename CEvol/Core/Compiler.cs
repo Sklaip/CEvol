@@ -1,5 +1,6 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
+using CEvol.Analysis.Semantic;
 using CEvol.Core.LogicModels.Statements;
 using CEvol.Core.MemebersModels;
 using CEvol.Generation;
@@ -106,6 +107,9 @@ namespace CEvol.Core
 
 				program.AddStatement(statement);
 			}
+
+			var referencesAnalazer = new ReferencesAnalyzer(errorsBag);
+			referencesAnalazer.Visit(program);
 
 			// 7. Проверка ошибок и генерация кода
 			if (!errorsBag.HasErrors)

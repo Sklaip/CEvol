@@ -357,6 +357,7 @@ namespace CEvol.Parsing
 			{
 				case QKind.Reference:
 				case QKind.Array:
+				case QKind.BorrowReference:
 					return codeGenerator.PointerType;
 				default:
 					throw new NotImplementedException();

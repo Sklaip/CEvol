@@ -716,7 +716,6 @@ namespace CEvol.Analysis
 
 		public Expression SetRefQualifier(Expression expr)
 		{
-
 			if (CheckStubForError(expr)) return new StubForErrorExpression();
 			return new DoNotAutoDereferenceIfPointerExpression(expr);
 		}
