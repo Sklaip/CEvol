@@ -419,6 +419,7 @@ namespace CEvol.Parsing
 			else
 			{
 				var arguments = ParseArgs(context.args());
+				SetCurrentPosition(context.IDENTIFIER().Symbol);
 				var res = _semanticAnalyzer.CallClassMethod(memberName, expr, arguments);
 
 				_semanticAnalyzer.CurrentPosition = lastPos;
@@ -690,7 +691,12 @@ namespace CEvol.Parsing
 
 		private void SetCurrentPosition(ParserRuleContext context)
 		{
-			_semanticAnalyzer.CurrentPosition = new PositionInSources(_currentFile, context.Start.Line, context.Start.Column);
+			SetCurrentPosition(context.Start);
+		}
+
+		private void SetCurrentPosition(IToken context)
+		{
+			_semanticAnalyzer.CurrentPosition = new PositionInSources(_currentFile, context.Line, context.Column);
 		}
 
 	}

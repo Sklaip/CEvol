@@ -102,7 +102,7 @@ namespace CEvol.Core
 				return 0;
 
 			// Переводим 1-based символ в 0-based индекс
-			int targetIndex = Math.Min(Math.Max(0, symbolPosition - 1), originalLine.Length - 1);
+			int targetIndex = Math.Min(Math.Max(0, symbolPosition), originalLine.Length - 1);
 
 			// Коррекция: Если targetIndex попал на пробел/табуляцию, смещаем его вправо до первого печатного символа
 			while (targetIndex < originalLine.Length && char.IsWhiteSpace(originalLine[targetIndex]))

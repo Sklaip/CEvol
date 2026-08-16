@@ -647,7 +647,6 @@ namespace CEvol.Analysis
 				return new StubForErrorExpression();
 			}
 
-			// TODO: вынести это в какую-нибудь константу или прямо в класс занести, чтобы везде такую хуню не писать
 			if (varExpr.ResultTypeSpec.IsRef && !expr.ResultTypeSpec.IsRef)
 			{
 				varExpr = new PointerDereferenceExpression(varExpr);
