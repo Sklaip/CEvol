@@ -1,10 +1,10 @@
-﻿using CEvol.Core.MemebersModels;
-using CEvol.Generation;
+﻿using EvolZero.Core.MemebersModels;
+using EvolZero.Generation;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Statements
+namespace EvolZero.Core.LogicModels.Statements
 {
 	public interface IFunctionalBlockStatement
 	{

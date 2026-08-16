@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels
+namespace EvolZero.Core.LogicModels
 {
 	public interface ILogicModel
 	{

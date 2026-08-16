@@ -1,10 +1,10 @@
-﻿using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Expressions
+namespace EvolZero.Core.LogicModels.Expressions
 {
 	internal class PointerDereferenceExpression : Expression
 	{

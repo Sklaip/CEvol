@@ -1,5 +1,5 @@
-﻿using CEvol.Core;
-using CEvol.Generation.Accessors;
+﻿using EvolZero.Core;
+using EvolZero.Generation.Accessors;
 using LLVMSharp;
 using LLVMSharp.Interop;
 using Microsoft.Build.Utilities;
@@ -9,11 +9,11 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
-using static CEvol.Core.MemebersModels.Qualifier;
-using static CEvol.Generation.FuncAccessData;
+using static EvolZero.Core.MemebersModels.Qualifier;
+using static EvolZero.Generation.FuncAccessData;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace CEvol.Generation
+namespace EvolZero.Generation
 {
 	internal class CodeGenerator
 	{

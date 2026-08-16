@@ -1,17 +1,17 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using CEvol.Analysis.Semantic;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
-using CEvol.Generation;
-using CEvol.Parsing;
+using EvolZero.Analysis.Semantic;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
+using EvolZero.Generation;
+using EvolZero.Parsing;
 using LLVMSharp;
 using LLVMSharp.Interop;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace CEvol.Core
+namespace EvolZero.Core
 {
 	internal class Compiler
 	{

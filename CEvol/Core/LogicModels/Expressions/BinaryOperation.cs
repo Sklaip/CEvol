@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Expressions
+namespace EvolZero.Core.LogicModels.Expressions
 {
 	public enum BinaryOperation
 	{

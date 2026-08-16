@@ -1,13 +1,13 @@
 ﻿using Antlr4.Runtime.Atn;
-using CEvol.Analysis;
-using CEvol.Analysis.Semantic;
-using CEvol.Core;
-using CEvol.Core.LogicModels.Expressions;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
-using CEvol.Generation.Accessors;
+using EvolZero.Analysis;
+using EvolZero.Analysis.Semantic;
+using EvolZero.Core;
+using EvolZero.Core.LogicModels.Expressions;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
+using EvolZero.Generation.Accessors;
 
-namespace CEvol.Generation
+namespace EvolZero.Generation
 {
 	internal class Emitter
 	{

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.CLI
+namespace EvolZero.CLI
 {
 	internal class CommandLineManager
 	{

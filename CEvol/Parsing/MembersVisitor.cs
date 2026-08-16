@@ -1,10 +1,10 @@
 ﻿using Antlr4.Runtime.Misc;
-using CEvol.Core;
-using CEvol.Core.MemebersModels;
-using CEvol.Generation;
-using static CEvol.Core.MemebersModels.Qualifier;
+using EvolZero.Core;
+using EvolZero.Core.MemebersModels;
+using EvolZero.Generation;
+using static EvolZero.Core.MemebersModels.Qualifier;
 
-namespace CEvol.Parsing
+namespace EvolZero.Parsing
 {
 	internal class MembersVisitor : CEvolParserBaseVisitor<object?>
 	{

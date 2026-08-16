@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Generation
+namespace EvolZero.Generation
 {
 	public class FuncRefData
 	{

@@ -1,8 +1,8 @@
 ﻿
-using CEvol.Core.MemebersModels;
-using CEvol.Generation;
+using EvolZero.Core.MemebersModels;
+using EvolZero.Generation;
 
-namespace CEvol.Core.LogicModels.Statements
+namespace EvolZero.Core.LogicModels.Statements
 {
 	public class FunctionStatement : Statement, IFunctionalBlockStatement
 	{

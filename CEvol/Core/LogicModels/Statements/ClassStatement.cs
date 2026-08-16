@@ -1,9 +1,9 @@
-﻿using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Statements
+namespace EvolZero.Core.LogicModels.Statements
 {
 	internal class ClassStatement : Statement
 	{

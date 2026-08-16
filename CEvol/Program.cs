@@ -1,11 +1,11 @@
-﻿using CEvol.CLI;
-using CEvol.Parsing;
+﻿using EvolZero.CLI;
+using EvolZero.Parsing;
 using LLVMSharp;
 using LLVMSharp.Interop;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace CEvol
+namespace EvolZero
 {
 	internal class Program
 	{

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Statements
+namespace EvolZero.Core.LogicModels.Statements
 {
 	public class NamespaceStatement : Statement
 	{

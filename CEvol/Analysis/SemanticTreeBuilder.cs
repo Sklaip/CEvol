@@ -1,16 +1,16 @@
 ﻿using Antlr4.Runtime.Misc;
-using CEvol.Analysis.Semantic;
-using CEvol.Core;
-using CEvol.Core.LogicModels;
-using CEvol.Core.LogicModels.Expressions;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
+using EvolZero.Analysis.Semantic;
+using EvolZero.Core;
+using EvolZero.Core.LogicModels;
+using EvolZero.Core.LogicModels.Expressions;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
 using System.Numerics;
 using System.Text;
 using System.Xml.Linq;
-using static CEvol.Core.MemebersModels.Qualifier;
+using static EvolZero.Core.MemebersModels.Qualifier;
 
-namespace CEvol.Analysis
+namespace EvolZero.Analysis
 {
 	internal class SemanticTreeBuilder
 	{

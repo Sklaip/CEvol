@@ -1,9 +1,9 @@
-﻿using CEvol.Core.LogicModels.Expressions;
+﻿using EvolZero.Core.LogicModels.Expressions;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.LogicModels.Statements
+namespace EvolZero.Core.LogicModels.Statements
 {
 	public class ReturnStatement : Statement
 	{

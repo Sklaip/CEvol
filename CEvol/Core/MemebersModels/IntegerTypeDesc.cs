@@ -1,9 +1,9 @@
-﻿using CEvol.Generation;
+﻿using EvolZero.Generation;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.MemebersModels
+namespace EvolZero.Core.MemebersModels
 {
 	internal class IntegerTypeDesc : TypeDesc
 	{

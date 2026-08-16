@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core.MemebersModels
+namespace EvolZero.Core.MemebersModels
 {
 	public readonly record struct Qualifier
 	{

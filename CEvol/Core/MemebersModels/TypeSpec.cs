@@ -1,11 +1,11 @@
-﻿using CEvol.Generation;
+﻿using EvolZero.Generation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Xml.Linq;
 
-namespace CEvol.Core.MemebersModels
+namespace EvolZero.Core.MemebersModels
 {
 	public readonly struct TypeSpec : IEquatable<TypeSpec>
 	{

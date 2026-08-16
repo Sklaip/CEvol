@@ -1,9 +1,9 @@
-﻿using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Core
+namespace EvolZero.Core
 {
 	internal class MembersTable
 	{

@@ -1,10 +1,10 @@
-﻿using CEvol.Generation.Accessors;
+﻿using EvolZero.Generation.Accessors;
 using LLVMSharp.Interop;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Generation
+namespace EvolZero.Generation
 {
 	internal class FuncAccessData
 	{

@@ -1,14 +1,14 @@
-﻿using CEvol.Core;
-using CEvol.Core.LogicModels;
-using CEvol.Core.LogicModels.Expressions;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core;
+using EvolZero.Core.LogicModels;
+using EvolZero.Core.LogicModels.Expressions;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
 using LLVMSharp;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Analysis.Semantic
+namespace EvolZero.Analysis.Semantic
 {
 	internal class ReferencesData
 	{

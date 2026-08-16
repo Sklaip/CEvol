@@ -1,10 +1,10 @@
-﻿using CEvol.Core;
+﻿using EvolZero.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace CEvol.CLI
+namespace EvolZero.CLI
 {
 	internal class CompileCommandExecutor : ICommandExecutor
 	{

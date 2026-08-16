@@ -1,15 +1,15 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
-using CEvol.Analysis;
-using CEvol.Analysis.Semantic;
-using CEvol.Core;
-using CEvol.Core.LogicModels.Expressions;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
+using EvolZero.Analysis;
+using EvolZero.Analysis.Semantic;
+using EvolZero.Core;
+using EvolZero.Core.LogicModels.Expressions;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
 using System.Numerics;
 
 
-namespace CEvol.Parsing
+namespace EvolZero.Parsing
 {
 	internal class LogicVisitor : CEvolParserBaseVisitor<Expression?>
 	{

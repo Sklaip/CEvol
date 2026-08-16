@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Generation.Accessors
+namespace EvolZero.Generation.Accessors
 {
 	internal class FuncArgumentAccessor : IValueAccessor
 	{

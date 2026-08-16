@@ -1,11 +1,11 @@
-﻿using CEvol.Core.LogicModels.Expressions;
-using CEvol.Core.LogicModels.Statements;
-using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core.LogicModels.Expressions;
+using EvolZero.Core.LogicModels.Statements;
+using EvolZero.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CEvol.Analysis
+namespace EvolZero.Analysis
 {
 	internal abstract class SemanticTreeVisitor<T>
 	{

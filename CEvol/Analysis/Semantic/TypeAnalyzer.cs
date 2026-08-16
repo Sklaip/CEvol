@@ -1,12 +1,12 @@
-﻿using CEvol.Core;
-using CEvol.Core.MemebersModels;
+﻿using EvolZero.Core;
+using EvolZero.Core.MemebersModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace CEvol.Analysis.Semantic
+namespace EvolZero.Analysis.Semantic
 {
 	internal class TypeAnalyzer
 	{
