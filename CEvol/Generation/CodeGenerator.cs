@@ -35,6 +35,7 @@ namespace EvolZero.Generation
 		private Stack<LLVMBasicBlockRef> _activeBlocks = new();
 
 		public readonly TypeRef PointerType;
+		public readonly TypeRef VoidType;
 
 		public CodeGenerator(LLVMContextRef context, LLVMModuleRef module)
 		{
@@ -44,6 +45,7 @@ namespace EvolZero.Generation
 
 			DeclareMalloc();
 			PointerType = new TypeRef(GetPointerType());
+			VoidType = new TypeRef(_context.VoidType);
 		}
 
 		public TypeRef GetType(BaseTypes type) => new TypeRef(BaseTypeToLLVMType(type));

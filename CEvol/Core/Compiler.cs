@@ -22,7 +22,8 @@ namespace EvolZero.Core
 			public string FilePath { get; set; } = string.Empty;
 			public string Content { get; set; } = string.Empty;
 			public IParseTree Tree { get; set; } = null!;
-			public MembersVisitor MembersVisitor { get; set; } = null!;
+			public MembersTableBuilder TableBuilder { get; set; } = null!;
+			public string Namespace { get; set; } = null!;
 		}
 
 		public void Execute(List<string> inputFiles, string outputFile)
@@ -36,7 +37,6 @@ namespace EvolZero.Core
 			LLVM.InitializeAllTargetMCs();
 			LLVM.InitializeAllAsmPrinters();
 
-			// 1. Чтение исходного кода и построение синтаксических деревьев
 			var sourcesMap = new Dictionary<string, string>();
 			var units = new List<FileUnit>();
 
@@ -60,8 +60,6 @@ namespace EvolZero.Core
 				});
 			}
 
-			// 2. Инициализация модуля кодогенерации
-			// Валидация имени модуля из аргументов компиляции (outputFile)
 			string moduleName = Path.GetFileNameWithoutExtension(outputFile);
 			if (string.IsNullOrWhiteSpace(moduleName))
 			{
@@ -69,35 +67,39 @@ namespace EvolZero.Core
 			}
 
 			var codeGenerator = BuildCodeGenerator(moduleName);
-			var baseMemebersList = BuildBaseMembersList(codeGenerator);
-			MembersTable globalMembersTable = new MembersTable();
+			var globalMembersTable = BuildBaseMembersTable(codeGenerator);
+			var globalTypesList = new Dictionary<string, TypeDesc>(globalMembersTable.Types);
 
-			// 3. Первый проход: Один MembersVisitor на один файл исходного кода
 			foreach (var unit in units)
 			{
-				unit.MembersVisitor = new MembersVisitor();
-				unit.MembersVisitor.Visit(unit.Tree);
+				var visitor = new MembersVisitor();
+				visitor.Visit(unit.Tree);
 
-				// Объединяем полученные типы и функции в общую таблицу
-				MembersTable fileTable = unit.MembersVisitor.Build(baseMemebersList, codeGenerator);
-				globalMembersTable.Merge(fileTable);
+				var membersTableBuilder = new MembersTableBuilder(visitor.CurrentNameSpace,
+					visitor.Usings, visitor.Classes, visitor.SingleFunctions, codeGenerator);
+
+				membersTableBuilder.PrepareTable(globalTypesList);
+				unit.TableBuilder = membersTableBuilder;
+				unit.Namespace = visitor.CurrentNameSpace;
 			}
 
-			// 4. MembersFinder содержит в себе все классы и пространства имен со всех файлов
+			foreach (var unit in units)
+			{
+				var currentTable = unit.TableBuilder.Build();
+				globalMembersTable.Merge(currentTable);
+			}
+
 			var finder = new MembersFinder(globalMembersTable);
 			foreach (var unit in units)
 			{
-				if (!string.IsNullOrEmpty(unit.MembersVisitor.CurrentNameSpace))
+				if (!string.IsNullOrEmpty(unit.Namespace))
 				{
-					finder.AddNamespace(unit.MembersVisitor.CurrentNameSpace);
+					finder.AddNamespace(unit.Namespace);
 				}
 			}
 
-			// 5. Единый ErrorsBag, содержащий в себе исходники всех файлов
 			var errorsBag = new ErrorsBag(sourcesMap);
-
-			// 6. Второй проход: Один LogicVisitor на один файл исходного кода
-			var program = new ProgramStatement(default); // Корневой агрегатор всех AST элементов
+			var program = new ProgramStatement(default);
 
 			foreach (var unit in units)
 			{
@@ -117,7 +119,6 @@ namespace EvolZero.Core
 			var referencesAnalazer = new ReferencesAnalyzer(errorsBag);
 			referencesAnalazer.Visit(program);
 
-			// 7. Проверка ошибок и генерация кода
 			if (!errorsBag.HasErrors)
 			{
 				var emitter = new Emitter(codeGenerator);
@@ -131,7 +132,7 @@ namespace EvolZero.Core
 			}
 		}
 
-		private MembersTable BuildBaseMembersList(CodeGenerator codeGenerator)
+		private MembersTable BuildBaseMembersTable(CodeGenerator codeGenerator)
 		{
 			var types = new Dictionary<string, TypeDesc>();
 			types["void"] = new TypeDesc("void", codeGenerator.GetType(BaseTypes.Void));

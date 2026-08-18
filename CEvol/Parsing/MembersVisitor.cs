@@ -2,6 +2,7 @@
 using EvolZero.Core;
 using EvolZero.Core.MemebersModels;
 using EvolZero.Generation;
+using EvolZero.Parsing.Models;
 using static EvolZero.Core.MemebersModels.Qualifier;
 
 namespace EvolZero.Parsing
@@ -9,18 +10,13 @@ namespace EvolZero.Parsing
 	internal class MembersVisitor : CEvolParserBaseVisitor<object?>
 	{
 		public string CurrentNameSpace { get; private set; } = null!;
-		private Dictionary<string, ClassSignature> _classes = new();
+		public Dictionary<string, ClassSignature> Classes = new();
+		public Dictionary<string, List<FuncSignature>> SingleFunctions = new();
+		public HashSet<string> Usings = new();
 
 		private Dictionary<string, VariableSignature>? _currentClassVariables = null;
 		private Dictionary<string, List<FuncSignature>>? _currentClassFunctions = null;
 		private List<ConstructorSignature>? _currentClassConstructors = null;
-		private Dictionary<string, List<FuncSignature>> _singleFunctions = new();
-
-		private record TypeDeclaring(string TypeName, string[] Qualifiers, string[] Modifiers);
-		private record FuncSignature(string Name, TypeDeclaring ReturnType, List<(TypeDeclaring Type, string Name)>? Arguments, string[] modifiers);
-		private record ConstructorSignature(List<(TypeDeclaring Type, string Name)>? Arguments, string[] modifiers);
-		private record VariableSignature(string Name, TypeDeclaring Type);
-		private record ClassSignature(string Name, List<ConstructorSignature> Ctors, Dictionary<string, List<FuncSignature>> Functions, Dictionary<string, VariableSignature> Fields);
 
 		public override object? VisitNamespaceDecl([NotNull] CEvolParser.NamespaceDeclContext context)
 		{
@@ -28,6 +24,15 @@ namespace EvolZero.Parsing
 			if (CurrentNameSpace == null)
 				throw new NotImplementedException();
 
+			return VisitChildren(context);
+		}
+
+		public override object? VisitUsingDecl([NotNull] CEvolParser.UsingDeclContext context)
+		{
+			string name = context.IDENTIFIER().GetText();
+			if (name == null) throw new NotImplementedException();
+
+			Usings.Add(name);
 			return VisitChildren(context);
 		}
 
@@ -39,7 +44,7 @@ namespace EvolZero.Parsing
 
 			var typeName = context.IDENTIFIER().ToString();
 			var fullTypeName = $"{CurrentNameSpace}.{typeName}";
-			if (typeName == null || _classes.ContainsKey(fullTypeName))
+			if (typeName == null || Classes.ContainsKey(fullTypeName))
 				throw new NotImplementedException();
 
 			foreach (var fieldDecl in context.fieldDecl())
@@ -58,7 +63,7 @@ namespace EvolZero.Parsing
 			}
 
 			var currentClassDesc = new ClassSignature(fullTypeName, _currentClassConstructors, _currentClassFunctions, _currentClassVariables);
-			_classes[fullTypeName] = currentClassDesc;
+			Classes[fullTypeName] = currentClassDesc;
 
 			_currentClassVariables = null;
 			_currentClassFunctions = null;
@@ -96,7 +101,7 @@ namespace EvolZero.Parsing
 			string? funcName = context.IDENTIFIER().ToString();
 			if (funcName == null) throw new NotImplementedException();
 
-			var funcsList = _currentClassFunctions ?? _singleFunctions;
+			var funcsList = _currentClassFunctions ?? SingleFunctions;
 
 			if (!funcsList.TryGetValue(funcName, out List<FuncSignature>? functions))
 			{
@@ -128,7 +133,7 @@ namespace EvolZero.Parsing
 
 			if (!modifers.Contains("extern")) throw new NotImplementedException();
 
-			var funcsList = _currentClassFunctions ?? _singleFunctions;
+			var funcsList = _currentClassFunctions ?? SingleFunctions;
 
 			if (!funcsList.TryGetValue(funcName, out List<FuncSignature>? functions))
 			{
@@ -198,180 +203,6 @@ namespace EvolZero.Parsing
 		public string ParseArraySpec([NotNull] CEvolParser.ArraySpecContext context)
 		{
 			return "array";
-		}
-
-		private TypeDesc FindTypeForDeclaring(Dictionary<string, TypeDesc> currentClasses, TypeDeclaring typeDecl)
-		{
-			if (!currentClasses.TryGetValue(typeDecl.TypeName, out TypeDesc? type) && !currentClasses.TryGetValue($"{CurrentNameSpace}.{typeDecl.TypeName}", out type))
-			{
-				// этого типа не существует
-				throw new NotImplementedException();
-			}
-
-			return type;
-		}
-
-		private void ConstructorsAnalyze(List<ConstructorSignature> constructorsList,
-			Dictionary<string, TypeDesc> typesList, CodeGenerator codeGenerator, TypeDesc currentClass)
-		{
-			foreach (var ctor in constructorsList)
-			{
-				var arguments = new List<Argument>();
-				var agrumentsRefs = new List<TypeRef>();
-
-				string funcName = $"{currentClass.Name}_ctor";
-				agrumentsRefs.Add(codeGenerator.PointerType);
-
-				if (ctor.Arguments != null)
-				{
-					foreach ((TypeDeclaring Type, string Name) funcArgument in ctor.Arguments)
-					{
-						TypeDesc argumentType = FindTypeForDeclaring(typesList, funcArgument.Type);
-						var declaring = new TypeSpec(argumentType, Qualifier.FromString(funcArgument.Type.Qualifiers));
-						arguments.Add(new Argument(declaring, funcArgument.Name));
-						agrumentsRefs.Add(declaring.QualifiersExists ? codeGenerator.PointerType : argumentType.TypeRef);
-					}
-				}
-
-				FuncRefData funcRefs;
-				bool infArgs = ctor.modifiers.Contains("infargs"); // TODO: енумом модификаторы сделать что ли, или флагами
-				funcRefs = codeGenerator.CreateFunctionSiganture(funcName, typesList["void"].TypeRef, agrumentsRefs, infArgs);
-
-				currentClass.Constructors.Add(new ConstructorDesc(arguments.ToArray(), funcRefs));
-			}
-		}
-
-		private void FunctionsAnalyze(Dictionary<string, List<FuncSignature>> rawFunctionsList,
-			Dictionary<string, TypeDesc> typesList, Dictionary<string, FuncDesc[]> listToAdd, CodeGenerator codeGenerator, TypeDesc? currentClass = null)
-		{
-			foreach (var funcsKey in rawFunctionsList.Keys)
-			{
-				var funcList = new List<FuncDesc>();
-
-				foreach (var func in rawFunctionsList[funcsKey])
-				{
-					TypeDesc returnType = FindTypeForDeclaring(typesList, func.ReturnType);
-					var returnTypeQualifers = Qualifier.FromString(func.ReturnType.Qualifiers);
-
-					var arguments = new List<Argument>();
-					var agrumentsRefs = new List<TypeRef>();
-
-					string funcName;
-					if (currentClass != null)
-					{
-						funcName = $"{currentClass.Name}_{func.Name}"; // TODO: если неколько функций с одним именем, то это в названии надо учитывать
-						agrumentsRefs.Add(codeGenerator.PointerType);
-					}
-					else
-					{
-						funcName = $"{func.Name}";
-					}
-
-					if (func.Arguments != null)
-					{
-						foreach ((TypeDeclaring Type, string Name) funcArgument in func.Arguments)
-						{
-							TypeDesc argumentType = FindTypeForDeclaring(typesList, funcArgument.Type);
-							var declaring = new TypeSpec(argumentType, Qualifier.FromString(funcArgument.Type.Qualifiers));
-							arguments.Add(new Argument(declaring, funcArgument.Name));
-							agrumentsRefs.Add(declaring.QualifiersExists ? codeGenerator.PointerType : argumentType.TypeRef);
-						}
-					}
-
-					FuncRefData funcRefs;
-					bool infArgs = func.modifiers.Contains("infargs"); // TODO: енумом модификаторы сделать что ли, или флагами
-					if (func.ReturnType.Qualifiers == null || func.ReturnType.Qualifiers.Length < 1)
-					{
-						funcRefs = codeGenerator.CreateFunctionSiganture(funcName, returnType.TypeRef, agrumentsRefs, infArgs);
-					}
-					else
-					{
-						funcRefs = codeGenerator.CreateFunctionSiganture(funcName, QKindToTypeRef(returnTypeQualifers[0].Kind, codeGenerator), agrumentsRefs, infArgs);
-					}
-
-					var funcDesc = new FuncDesc(new TypeSpec(returnType, returnTypeQualifers), func.Name, arguments.ToArray(), funcRefs, infArgs);
-					funcList.Add(funcDesc);
-				}
-
-				// TODO: сделать проверку на дубликаты методов
-				listToAdd.Add(funcsKey, funcList.ToArray());
-			}
-		}
-
-		private Dictionary<string, TypeDesc> BuildClassesList(MembersTable existsMembers, CodeGenerator codeGenerator)
-		{
-			var currentClasses = new Dictionary<string, TypeDesc>(existsMembers.Types);
-			foreach (var currentClass in _classes.Values)
-			{
-				if (existsMembers.Types.ContainsKey(currentClass.Name))
-				{
-					//такой класс уже существует
-					throw new NotImplementedException();
-				}
-
-				var classStructure = codeGenerator.CreateStructure(currentClass.Name);
-
-				var classDesc = new TypeDesc(currentClass.Name, classStructure, [], [], []);
-				currentClasses.Add(currentClass.Name, classDesc);
-			}
-
-			foreach (var currentClass in _classes.Values)
-			{
-				var currentClassTypeDesc = currentClasses[currentClass.Name];
-				var filedTypes = new List<TypeRef>();
-				uint fieldNum = 0;
-				foreach (var field in currentClass.Fields.Values)
-				{
-					TypeDesc fieldType = FindTypeForDeclaring(currentClasses, field.Type);
-					var qualifers = Qualifier.FromString(field.Type.Qualifiers);
-
-					if (!fieldType.IsBaseType && (qualifers == null || qualifers.Length < 1)) throw new NotImplementedException(); // TODO: сделать возможность пихать класс в класс по значению
-
-					currentClassTypeDesc.Variables.Add(field.Name, new VariableDesc(new TypeSpec(fieldType, qualifers), field.Name, fieldNum));
-
-					if (qualifers == null || qualifers.Length < 1)
-					{
-						filedTypes.Add(fieldType.TypeRef);
-					}
-					else
-					{
-						filedTypes.Add(QKindToTypeRef(qualifers[0].Kind, codeGenerator));
-					}
-
-					fieldNum++;
-				}
-
-				codeGenerator.FillStructureBody(currentClassTypeDesc.TypeRef, filedTypes);
-
-				FunctionsAnalyze(currentClass.Functions, currentClasses, currentClassTypeDesc.Functions, codeGenerator, currentClassTypeDesc);
-				ConstructorsAnalyze(currentClass.Ctors, currentClasses, codeGenerator, currentClassTypeDesc);
-			}
-
-			return currentClasses;
-		}
-
-		// TODO: это куда-то вынести, код дублирует с SemanticAnalyzer
-		private TypeRef QKindToTypeRef(QKind qKind, CodeGenerator codeGenerator)
-		{
-			switch (qKind)
-			{
-				case QKind.Reference:
-				case QKind.Array:
-				case QKind.BorrowReference:
-					return codeGenerator.PointerType;
-				default:
-					throw new NotImplementedException();
-			}
-		}
-
-
-		public MembersTable Build(MembersTable existsMembers, CodeGenerator codeGenerator)
-		{
-			var classes = BuildClassesList(existsMembers, codeGenerator);
-			var singleFunctions = new Dictionary<string, FuncDesc[]>();
-			FunctionsAnalyze(_singleFunctions, classes, singleFunctions, codeGenerator);
-
-			return new MembersTable(singleFunctions, classes);
 		}
 
 	}
